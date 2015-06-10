@@ -2,48 +2,50 @@
   (:require [clojure.string :as s]))
 
 ; just for testing
-(def sign {:c [:const 0]
-           :f [:func 2]
-           :f3 [:func 1]
-           :P [:pred 1]
-           :P2 [:pred 2]
-           :f2 [:func 0]})
+(def s {:c [:const 0]
+        :f [:func 2]
+        :f3 [:func 1]
+        :P [:pred 1]
+        :P2 [:pred 2]
+        :f2 [:func 0]})
 
+(def sign (atom {}))
 
 (defn is? 
   "Verifies if symb (has to be a symbol) is part of the signature and holds the given key"
   [symb key]
-  (if (= (first ((keyword symb) sign)) key)
+  (if (= (first ((keyword symb) @sign)) key)
     true
     false))
 
 (defn variable?
   "Verifies if symb (has to be a symbol) is not part of the signature"
   [symb]
-  (if (not ((keyword symb) sign))
+  (if (not ((keyword symb) @sign))
     true
     false))
 
 (defn check-arguments
   "Verifies the arguments of phi by checking the arity in the signature and validate each argument with the function f"
   [phi f]
-  (let [arity (second ((keyword (first phi)) sign))]
+  (let [arity (second ((keyword (first phi)) @sign))]
     (if (= (count (rest phi)) arity)
       (every? f (rest phi))
       (throw (Exception. (str "Wrong number of arguments for the element \"" (first phi) "\" (signature: " arity ") - " phi))))))
-      
-(defn atom
+
+
+(declare function)
+(defn single
   "Verifies if phi is a constant or a variable"
   [phi]
   (and (symbol? phi)
        (or (is? phi :const)
            (variable? phi))))
 
-(declare function)
 (defn term
   "Verifies if phi is a valid term\nThe parent is just for better error messages"
   [phi & [parent]]
-  (if (or (atom phi)
+  (if (or (single phi)
           (function phi))
     true
     (throw (Exception. (str phi " is not a valid term" (if parent (str " - " parent) ""))))))
@@ -113,20 +115,11 @@
     
     :else (throw (Exception. (str "\"" (first phi) "\" is not a valid subformula operator (only: and, or, not, =, forall, exist) or a valid predicate")))))
 
+; TODO Ist ein einzelnes true/false bzw. eine einzelne Konstante/Variable eine gültige Formel?
 (defn wff?
-  [phi]
-  (cond
-    (list? phi) (subform phi)  ;TODO
-    (symbol? phi) true;TODO
-    :else false));TODO
-
-
-
-
-
-
-
-
+  [phi signature]
+  (reset! sign signature)
+  (subform phi))
 
 
 
