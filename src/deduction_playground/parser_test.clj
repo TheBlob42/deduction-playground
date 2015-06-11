@@ -114,6 +114,7 @@
           (subform (second (rest phi))))))
     
     :else (throw (Exception. (str "\"" (first phi) "\" is not a valid subformula operator (only: and, or, not, =, forall, exist) or a valid predicate")))))
+; TODO Sollen "and" und "or" mehr als 2 Argumente entgegen nehmen können?
 
 ; TODO Ist ein einzelnes true/false bzw. eine einzelne Konstante/Variable eine gültige Formel?
 (defn wff?
