@@ -79,14 +79,20 @@
       (every? term (rest phi)))
     
     (= (first phi) 'and)
-    (if (< (count (rest phi)) 2)
-      (throw (Exception. (str "\"and\" must have at least two arguments (currently " (count (rest phi)) ") - " phi)))
+    (if (< (count (rest phi)) 1)
+      true
       (every? subform (rest phi)))
+;    (if (< (count (rest phi)) 2)
+;      (throw (Exception. (str "\"and\" must have at least two arguments (currently " (count (rest phi)) ") - " phi)))
+;      (every? subform (rest phi)))
     
     (= (first phi) 'or)
-    (if (< (count (rest phi)) 2)
-      (throw (Exception. (str "\"or\" must have at least two arguments (currently " (count (rest phi)) ") - " phi)))
+    (if (< (count (rest phi)) 1)
+      true
       (every? subform (rest phi)))
+;    (if (< (count (rest phi)) 2)
+;      (throw (Exception. (str "\"or\" must have at least two arguments (currently " (count (rest phi)) ") - " phi)))
+;      (every? subform (rest phi)))
     
     (= (first phi) 'not)
     (if (> (count (rest phi)) 1)
@@ -103,24 +109,22 @@
           (throw (Exception. (str "There are non-variable elements inside the variable definition - " phi)))
           (subform (second (rest phi))))))
     
-    (= (first phi) 'exist)
+    (= (first phi) 'exists)
     (if (not= (count (rest phi)) 2)
-      (throw (Exception. (str "\"exist\" must have exactly two arguments (currently " (count (rest phi)) ") - " phi)))
+      (throw (Exception. (str "\"exists\" must have exactly two arguments (currently " (count (rest phi)) ") - " phi)))
       (if-not (and (vector? (second phi))
                    (> (count (second phi)) 0))
-        (throw (Exception. (str "The second argument of the \"exist\" operator has to be a vector with at least one variable definition - " phi)))
+        (throw (Exception. (str "The second argument of the \"exists\" operator has to be a vector with at least one variable definition - " phi)))
         (if-not (every? variable? (second phi))
           (throw (Exception. (str "There are non-variable elements inside the variable definition - " phi)))
           (subform (second (rest phi))))))
     
-    :else (throw (Exception. (str "\"" (first phi) "\" is not a valid subformula operator (only: and, or, not, =, forall, exist) or a valid predicate")))))
-; TODO Sollen "and" und "or" mehr als 2 Argumente entgegen nehmen können?
+    :else (throw (Exception. (str "\"" (first phi) "\" is not a valid subformula operator (only: and, or, not, =, forall, exists) or a valid predicate")))))
 
 ; TODO Ist ein einzelnes true/false bzw. eine einzelne Konstante/Variable eine gültige Formel?
 (defn wff?
   [phi signature]
   (reset! sign signature)
   (subform phi))
-
 
 

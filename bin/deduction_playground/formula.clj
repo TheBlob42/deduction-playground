@@ -1,7 +1,6 @@
 (ns deduction-playground.formula
   (:require [deduction-playground.signature :refer [signature]]
-            [deduction-playground.parser-test :refer [wff?]]
-            [clojure.string :as s]))
+            [deduction-playground.parser-test :refer [wff?]]))
 
 ;(defn split-form [form]
 ;  (s/split (s/replace (str form) #"\(|\)|\[|\]" {"(" "( " ")" " )" "[" "[ " "]" " ]"}) #" "))
@@ -18,4 +17,5 @@
   (if (wff? form sign)
     (with-meta form sign)
     nil))
-    
+
+
