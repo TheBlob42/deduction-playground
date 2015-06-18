@@ -41,7 +41,7 @@
 ; RAA/CONTRA
 {:name "raa"
  :given      '[(infer (not a) contradiction)]
- :conclusion '[a]};TODO
+ :conclusion '[a]}
 {:name "efq"
  :given      '[contradiction]
  :conclusion '[a]};maybe TODO

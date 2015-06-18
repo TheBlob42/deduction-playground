@@ -24,15 +24,16 @@
   (cond
     (contains? keywords arg) (list `list (list `quote arg))
     (symbol? arg) (list `list arg)
-;    (list? arg) (reduce #(cons %1 %2) (list `list (list `quote (first arg))) (rest arg))
+    (list? arg) (list `list (concat (list `concat) 
+                                    (list (list `list (list `quote (first arg)))) 
+                                    (map #(get-term-arg %) (rest arg))))
+    (vector? arg) (list `list (list `apply `vector (concat (list `concat) (map #(get-term-arg %) arg))))
     :else (throw (Exception. "ERROR"))))
 
 (defn gen-term
   "Converts a given list into a quoted sequence: (and a b) -> `(~'and ~a ~b)"
   [given]
-  (let [
-;        args (map #(list `list %) (rest given))
-        args (map #(get-term-arg %) (rest given))
+  (let [args (map #(get-term-arg %) (rest given))
         operator (list `list (list `quote (first given)))
         result (conj args operator)]
     (conj (list (conj result `concat)) `seq)))
@@ -54,28 +55,23 @@
 (defn gen-result
   "Generates the result row: (== q <whatever>)"
   [conclusion]
-;  `(== ~'q ~(if (symbol? (first conclusion))
-;              (first conclusion)
-;              (gen-term (first conclusion)))))
   `(== ~'q ~(cond 
               (contains? keywords (first conclusion)) (list `quote (first conclusion))
               (symbol? (first conclusion)) (first conclusion)
               (list? (first conclusion)) (gen-term (first conclusion)))))
 
+(defn gen-fresh-arg
+  [arg]
+  (cond 
+    (contains? keywords arg) []
+    (symbol? arg) [arg]
+    (list? arg) (reduce #(concat %1 (gen-fresh-arg %2)) [] (rest arg))
+    (vector? arg) (reduce #(concat %1 (gen-fresh-arg %2)) [] arg)));TODO Vektoren auslesen
+
 (defn gen-fresh-args
-  "Generates the arguments for the logic.fresh call.
-Takes all variables from the given input und all variables from the conclusion and removes duplicates"
   [given conclusion]
-  (let [gvars (reduce #(concat %1 (cond 
-                                    (contains? keywords %2) []
-                                    (symbol? %2) [%2]
-                                    (list? %2) (rest %2)
-                                    :else (throw (Exception. "Can't reduce gvars")))) [] given)
-        cvars (reduce #(concat %1 (cond
-                                    (contains? keywords %2) []
-                                    (symbol? %2) [%2]
-                                    (list? %2) (rest %2)
-                                    :else (throw (Exception. "Can't reduce cvars")))) [] conclusion)
+  (let [gvars (reduce #(concat %1 (gen-fresh-arg %2)) [] given)
+        cvars (reduce #(concat %1 (gen-fresh-arg %2)) [] conclusion)
         vars (distinct (concat gvars cvars))]
     (into [] vars)))
 
