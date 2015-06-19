@@ -5,6 +5,10 @@
 
 (def keywords #{'truth 'contradiction})
 
+;TODO
+; - erlaubte operatoren 
+; - mehrere Conclusionen
+
 (defn gen-arg 
   "Turns an input into an argument for the logic function: symbols are passed trough, lists are numbered"
   [x n]
@@ -52,13 +56,27 @@
   [args given]
   (remove #(empty? %) (map #(gen-body-row %1 %2) args given)))
 
-(defn gen-result
-  "Generates the result row: (== q <whatever>)"
-  [conclusion]
+;(defn gen-result
+;  "Generates the result row: (== q <whatever>)"
+;  [conclusion]
+;  `(== ~'q ~(cond 
+;              (contains? keywords (first conclusion)) (list `quote (first conclusion))
+;              (symbol? (first conclusion)) (first conclusion)
+;              (list? (first conclusion)) (gen-term (first conclusion)))))
+
+(defn gen-result-row
+  [c]
   `(== ~'q ~(cond 
-              (contains? keywords (first conclusion)) (list `quote (first conclusion))
-              (symbol? (first conclusion)) (first conclusion)
-              (list? (first conclusion)) (gen-term (first conclusion)))))
+              (contains? keywords c) (list `quote c)
+              (symbol? c) c
+              (list? c) (gen-term c))))
+
+(defn gen-result
+  [conclusion]
+  (let [rows (map #(gen-result-row %) conclusion)
+        res (for [r rows]
+              (vector r))]
+    (conj res `conde)))
 
 (defn gen-fresh-arg
   [arg]

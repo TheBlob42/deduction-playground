@@ -44,7 +44,7 @@
  :conclusion '[a]}
 {:name "efq"
  :given      '[contradiction]
- :conclusion '[a]};maybe TODO
+ :conclusion '[a]}
           
 ; EQUAL
 {:name "equal-i"
@@ -59,22 +59,26 @@
 {:name "forall-i"
  :given      '[(infer (actual x0)
                       (substitution phi x0 x))]
- :conclusion '[(forall [x] phi)]};TODO (actual)
+ :conclusion '[(forall [x] phi)]}
 {:name "forall-e"
  :given      '[(forall [x] phi)]
- :conclusion '[(substitution phi t x)]};TODO
+ :conclusion '[(substitution phi t x)]}; müsste es "(actual t)" sein?
 
 ; EXISTS
 {:name "exists-i"
  :given      '[(substitution phi t x)]
- :conclusion '[(exists [x] phi)]};TODO
+ :conclusion '[(exists [x] phi)]};müsse es "(actual t)" sein?
 {:name "exists-e"
  :given      '[(exists [x] phi)
                (infer [(actual x0)
                        (substitution phi x0 x)]
                       X)]
- :conclusion '[X]};TODO
+ :conclusion '[X]}
           
+; MULTIPLE CONCLUSIONS TESTING
+{:name "test"
+ :given '[(and a b)]
+ :conclusion '[a b]}
 
 
 
