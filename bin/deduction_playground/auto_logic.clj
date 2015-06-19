@@ -1,13 +1,15 @@
 (ns deduction-playground.auto-logic
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [deduction-playground.read-rules :refer [read-rules]]))
+
+(def rules (read-rules))
 
 (def keywords #{'truth 'contradiction})
 
 ;TODO
 ; - erlaubte operatoren 
-; - mehrere Conclusionen
 
 (defn gen-arg 
   "Turns an input into an argument for the logic function: symbols are passed trough, lists are numbered"
@@ -93,22 +95,71 @@
         vars (distinct (concat gvars cvars))]
     (into [] vars)))
 
+;(defn gen-logic-function
+;  [given conclusion]
+;  (let [args (gen-args given)
+;        fresh-args (apply vector (set/difference (set (gen-fresh-args given conclusion)) (set args)))
+;        body (gen-body args given)
+;        result (gen-result conclusion)
+;        fn-body (conj (concat body (list result)) fresh-args `fresh)]
+;    `(fn ~(conj args 'q)
+;       ~fn-body)))
+
+; MULTIPLE CONCLUSION TESTING
+(defn gen-result-row1
+  [q c]
+  `(== ~q ~(cond 
+              (contains? keywords c) (list `quote c)
+              (symbol? c) c
+              (list? c) (gen-term c))))
+
+(defn gen-result1
+  [conclusion qs]
+  (map #(gen-result-row1 %1 %2) qs conclusion))
+
 (defn gen-logic-function
   [given conclusion]
-  (let [args (gen-args given)
+  (let [qs (map #(symbol (str %1 %2)) (take (count conclusion) (cycle ['q])) (take (count conclusion) (iterate inc 1)))
+        args (gen-args given)
         fresh-args (apply vector (set/difference (set (gen-fresh-args given conclusion)) (set args)))
         body (gen-body args given)
-        result (gen-result conclusion)
-        fn-body (conj (concat body (list result)) fresh-args `fresh)]
-    `(fn ~(conj args 'q)
+        result (gen-result1 conclusion qs)
+        fn-body (conj (concat body result) fresh-args `fresh)]
+    `(fn ~(apply conj args qs)
        ~fn-body)))
+; ***************************
 
 (defn make-rule
   [rule]
   (gen-logic-function (:given rule) (:conclusion rule)))
+
+(defn apply-rule
+  [name & args]
+  (let [r ((keyword name) rules)
+        logic-args (into [] (map #(symbol (str %1 %2)) 
+                                 (take (count (:conclusion r)) (cycle ['q]))
+                                 (take (count (:conclusion r)) (iterate inc 1))))
+        fn (eval (make-rule r))
+        fn-args (concat args logic-args)]
+    (eval (list `run* logic-args (list fn 
+;    (run* [q1 q2] ~(conj fn-args fn))))
+;    (run* [q1] ((eval (make-rule r)) (first args) q1))))
+
+; TESTS for apply-rule
+(let [t (eval g)
+      q '[q]
+      u '(and e d)]
+  (eval (list `run* q (list t ''(and e d) 'q))))
         
+ (let [t (eval g)
+       q '[q]
+       u '(and e d)]
+   (eval (list `run* q (list t `(quote ~u) 'q))))
         
-        
-        
-        
-        
+ (let [t (eval g)
+       q '[q]
+       u '(and e d)
+       p '((and e d))
+       p2 (map #(conj (list %) `quote) p)
+       p3 (concat p2 q)]
+   (eval (list `run* q (conj p3 t))))
