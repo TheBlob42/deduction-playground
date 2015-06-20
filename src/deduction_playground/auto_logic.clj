@@ -133,33 +133,17 @@
   [rule]
   (gen-logic-function (:given rule) (:conclusion rule)))
 
-(defn apply-rule
-  [name & args]
-  (let [r ((keyword name) rules)
-        logic-args (into [] (map #(symbol (str %1 %2)) 
-                                 (take (count (:conclusion r)) (cycle ['q]))
-                                 (take (count (:conclusion r)) (iterate inc 1))))
-        fn (eval (make-rule r))
-        fn-args (concat args logic-args)]
-    (eval (list `run* logic-args (list fn 
-;    (run* [q1 q2] ~(conj fn-args fn))))
-;    (run* [q1] ((eval (make-rule r)) (first args) q1))))
-
-; TESTS for apply-rule
-(let [t (eval g)
-      q '[q]
-      u '(and e d)]
-  (eval (list `run* q (list t ''(and e d) 'q))))
-        
- (let [t (eval g)
-       q '[q]
-       u '(and e d)]
-   (eval (list `run* q (list t `(quote ~u) 'q))))
-        
- (let [t (eval g)
-       q '[q]
-       u '(and e d)
-       p '((and e d))
-       p2 (map #(conj (list %) `quote) p)
-       p3 (concat p2 q)]
-   (eval (list `run* q (conj p3 t))))
+ (defn apply-rule
+   "Applies a rule to the given arguments and returns the result(s)"
+   [name & args]
+   (let  [rule ((keyword name) rules)
+          args-list (map #(conj (list %) `quote) args)
+          logic-args (into [] (map #(symbol (str %1 %2)) 
+                                    (take (count (:conclusion rule)) (cycle ['q]))
+                                    (take (count (:conclusion rule)) (iterate inc 1))))
+          fn (eval (make-rule rule))
+          fn-args (concat args-list logic-args)]
+     (eval (list `run* logic-args (conj fn-args fn)))))
+          
+ 
+ 
