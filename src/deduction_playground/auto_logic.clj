@@ -9,7 +9,8 @@
 (def keywords #{'truth 'contradiction})
 
 ;TODO
-; - erlaubte operatoren 
+; - erlaubte operatoren (Terminale)
+; - Regeln rückwärts ausführen (-> einfach :given und :conclusion vertauschen)
 
 (defn gen-arg 
   "Turns an input into an argument for the logic function: symbols are passed trough, lists are numbered"
@@ -56,15 +57,7 @@
 (defn gen-body
   "Generates all rows for the body of the function, removes empty ones"
   [args given]
-  (remove #(empty? %) (map #(gen-body-row %1 %2) args given)))
-
-;(defn gen-result
-;  "Generates the result row: (== q <whatever>)"
-;  [conclusion]
-;  `(== ~'q ~(cond 
-;              (contains? keywords (first conclusion)) (list `quote (first conclusion))
-;              (symbol? (first conclusion)) (first conclusion)
-;              (list? (first conclusion)) (gen-term (first conclusion)))))
+  (remove empty? (map #(gen-body-row %1 %2) args given)))
 
 (defn gen-result-row
   [c]
@@ -130,8 +123,16 @@
 ; ***************************
 
 (defn make-rule
+  "Takes a map or string (related to one of the rules in the \"rules\"-map) to create a function"
   [rule]
-  (gen-logic-function (:given rule) (:conclusion rule)))
+  (cond
+    (map? rule)
+    (gen-logic-function (:given rule) (:conclusion rule))
+  
+    (string? rule)
+    (let [r ((keyword rule) rules)]
+      (gen-logic-function (:given r) (:conclusion r)))
+    :else "ERROR"))
 
  (defn apply-rule
    "Applies a rule to the given arguments and returns the result(s)"
@@ -144,6 +145,28 @@
           fn (eval (make-rule rule))
           fn-args (concat args-list logic-args)]
      (eval (list `run* logic-args (conj fn-args fn)))))
-          
+ 
+ 
+ (defn nreplace
+   "Nested replace (like core.replace). Replaces also items inside vectors or lists."
+   [smap coll]
+   (let [f (fn [m item]
+             (if (coll? item)
+               (nreplace m item)
+               (if-let [e (find m item)] (val e) item)))]
+   (cond 
+     (list? coll)
+     (map #(f smap %) coll)   
+     (vector? coll)
+     (into [] (map #(f smap %) coll)))))
+   
+ ;HELPER FUNCTIONS
+ (defn count-rule-given
+    [rule]
+    (count (:given ((keyword rule) rules))))
+ 
+ (defn does-rule-exist?
+   [rule]
+   (if ((keyword rule) rules) true false))
  
  

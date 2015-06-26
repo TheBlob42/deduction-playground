@@ -67,7 +67,7 @@
 ; EXISTS
 {:name "exists-i"
  :given      '[(substitution phi t x)]
- :conclusion '[(exists [x] phi)]};müsse es "(actual t)" sein?
+ :conclusion '[(exists [x] phi)]};müsste es "(actual t)" sein?
 {:name "exists-e"
  :given      '[(exists [x] phi)
                (infer [(actual x0)
@@ -79,6 +79,12 @@
 {:name "test"
  :given '[(and a b)]
  :conclusion '[a b]}
+
+{:name "or-e-backwards"
+ :given '[X]
+ :conclusion '[(or a b)
+               (infer a X)
+               (infer b X)]}
 
 
 
