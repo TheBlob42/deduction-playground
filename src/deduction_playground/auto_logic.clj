@@ -136,8 +136,9 @@
 
  (defn apply-rule
    "Applies a rule to the given arguments and returns the result(s)"
-   [name & args]
-   (let  [rule ((keyword name) rules)
+   [name forward? & args]
+   (let  [r ((keyword name) rules)
+          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
           args-list (map #(conj (list %) `quote) args)
           logic-args (into [] (map #(symbol (str %1 %2)) 
                                     (take (count (:conclusion rule)) (cycle ['q]))
@@ -147,18 +148,18 @@
      (eval (list `run* logic-args (conj fn-args fn)))))
  
  
- (defn nreplace
-   "Nested replace (like core.replace). Replaces also items inside vectors or lists."
-   [smap coll]
-   (let [f (fn [m item]
-             (if (coll? item)
-               (nreplace m item)
-               (if-let [e (find m item)] (val e) item)))]
-   (cond 
-     (list? coll)
-     (map #(f smap %) coll)   
-     (vector? coll)
-     (into [] (map #(f smap %) coll)))))
+; (defn nreplace
+;   "Nested replace (like core.replace). Replaces also items inside vectors or lists."
+;   [smap coll]
+;   (let [f (fn [m item]
+;             (if (coll? item)
+;               (nreplace m item)
+;               (if-let [e (find m item)] (val e) item)))]
+;   (cond 
+;     (list? coll)
+;     (map #(f smap %) coll)   
+;     (vector? coll)
+;     (into [] (map #(f smap %) coll)))))
    
  ;HELPER FUNCTIONS
  (defn count-rule-given
