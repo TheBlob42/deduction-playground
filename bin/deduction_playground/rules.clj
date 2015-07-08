@@ -80,6 +80,14 @@
  :given '[(and a b)]
  :conclusion '[a b]}
 
+{:name "multi"
+ :given '[a b]
+ :conclusion '[(not a) (or a b)]}
+
+{:name "testb"
+ :given '[a (not a)]
+ :conclusion '[(and a b)]}
+
 {:name "or-e-backwards"
  :given '[X]
  :conclusion '[(or a b)

@@ -68,13 +68,15 @@ x => returns line x
                 (nil? (:rule %))
                 (not= (:body %) :todo)) scope))
 
+  
+
 ;TODO add-before, add-after
 (defn edit-proof
   [proof item newitem mode]
   (let [index (.indexOf proof item)]
     (if (not= index -1)
       (condp = mode
-        ; TODO :add-before 
+        :add-before (into [] (concat (subvec proof 0 index) [newitem] (subvec proof index)))
         :add-after (with-meta (into [] (concat (subvec proof 0 (inc index)) [newitem] (subvec proof (inc index)))) {:found? true})
         :change (with-meta (into [] (concat (subvec proof 0 index) [newitem] (subvec proof (inc index)))) {:found? true})
         :remove (with-meta (into [] (concat (subvec proof 0 index) (subvec proof (inc index)))) {:found? true}))
@@ -89,14 +91,23 @@ x => returns line x
               (recur (subvec p 1) (conj res v))))
           :else (recur (subvec p 1) (conj res (first p))))))))
 
-(defn add-line
+(defn add-after-line
   [proof after newitem]
   (let [item (get-item-on-line proof after)]
     (edit-proof proof item newitem :add-after)))
 
-(defn add-item
+(defn add-after-item
   [proof after newitem]
   (edit-proof proof after newitem :add-after))
+
+(defn add-before-line
+  [proof before newitem]
+  (let [item (get-item-on-line proof before)]
+    (edit-proof proof before newitem :add-before)))
+
+(defn add-before-item
+  [proof before newitem]
+  (edit-proof proof before newitem :add-before))
 
 (defn remove-item
   [proof item]

@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
   (:require [clojure.set :as set]
-            [deduction-playground.read-rules :refer [read-rules]]))
+            [deduction-playground.read-rules :refer [read-rules]]
+            [clojure.math.combinatorics :as combo]))
 
 (def rules (read-rules))
 
@@ -120,7 +121,7 @@
         fn-body (conj (concat body result) fresh-args `fresh)]
     `(fn ~(apply conj args qs)
        ~fn-body)))
-; ***************************
+; *************************** 
 
 (defn make-rule
   "Takes a map or string (related to one of the rules in the \"rules\"-map) to create a function"
@@ -147,6 +148,21 @@
           fn-args (concat args-list logic-args)]
      (eval (list `run* logic-args (conj fn-args fn)))))
  
+  (defn apply-rule1
+   "Applies a rule to the given arguments and returns the result(s)"
+   [name forward? & args]
+   (let  [r ((keyword name) rules)
+          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
+          args-list (map #(conj (list %) `quote) args)
+          permutations (combo/permutations args-list)
+          logic-args (into [] (map #(symbol (str %1 %2)) 
+                                    (take (count (:conclusion rule)) (cycle ['q]))
+                                    (take (count (:conclusion rule)) (iterate inc 1))))
+          fn (eval (make-rule rule))
+          fn-args (concat args-list logic-args)]
+     (map first (remove empty? (for [x permutations]
+                                 (eval (list `run* logic-args (conj (concat x logic-args) fn))))))))
+ 
  
 ; (defn nreplace
 ;   "Nested replace (like core.replace). Replaces also items inside vectors or lists."
@@ -162,9 +178,11 @@
 ;     (into [] (map #(f smap %) coll)))))
    
  ;HELPER FUNCTIONS
- (defn count-rule-given
-    [rule]
-    (count (:given ((keyword rule) rules))))
+ (defn count-rule-args
+    [rule forward?]
+    (if forward? 
+      (count (:given ((keyword rule) rules)))
+      (count (:conclusion ((keyword rule) rules)))))
  
  (defn does-rule-exist?
    [rule]
