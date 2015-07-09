@@ -1,0 +1,227 @@
+(ns deduction-playground.deduction-test
+  (:require [deduction-playground.proof-new :refer [infer step-f step-b choose-option]]))
+
+; Aussagenlogik:
+; (16) a - f
+; (a)
+(def a (infer '[p] '(not (not p))))
+(-> a
+  (step-b "not-i" 3)
+  (step-f "not-e" 1 2))
+
+; (b)
+(def b (infer '[(not (not p))] 'p))
+(-> b
+  (step-b "raa" 3)
+  (step-f "not-e" 1 2))
+
+; (c)
+(def c (infer '[(impl p q) (not q)] '(not p)))
+(-> c
+  (step-b "not-i" 4)
+  (step-f "impl-e" 1 3)
+  (step-f "not-e" 2 4))
+
+; (d)
+(def d (infer '(or p (not p))))
+(-> d
+  (step-b "raa" 2)
+  (step-f "not-e" 1)) ; <- Problem!
+
+; (e)
+(def e (infer '[(impl p q)]
+              '(impl (not q) (not p))))
+(-> e
+  (step-b "impl-i" 3)) ; <- Modus Tollens!
+
+; (f)
+(def f (infer '[(impl p q)
+                (impl (not p) q)] 'q))
+(-> f
+  (step-b "raa" 4)) ; <- Modus Tollens!
+
+; (17) a - o
+; (a)
+(def a (infer '[(and (and p q) r)
+                (and s t)]
+              '(and q s)))
+(-> a
+  (step-f "and-e1" 1)
+  (step-f "and-e2" 2)
+  (step-f "and-e1" 4)
+  (step-f "and-i" 3 5)
+  (choose-option 6 1))
+
+; (b)
+(def b (infer '[(and p q)] '(and q p)))
+(-> b
+  (step-f "and-e1" 1)
+  (step-f "and-e2" 1)
+  (step-f "and-i" 2 3)
+  (choose-option 4 1))
+
+; (c)
+(def c (infer '[(and (and p q) r)]
+              '(and p (and q r))))
+(-> c
+  (step-f "and-e1" 1)
+  (step-f "and-e2" 1)
+  (step-f "and-e1" 3)
+  (step-f "and-e2" 3)
+  (step-f "and-i" 2 4)
+  (choose-option 5 2)
+  (step-f "and-i" 5 6)
+  (choose-option 7 2))
+
+; (d)
+(def d (infer '[(impl p (impl p q)) p]
+              'q))
+(-> d
+  (step-f "impl-e" 1 2)
+  (step-f "impl-e" 2 3))
+
+; (e)
+(def e (infer '[(impl q (impl p r))
+                (not r) q] 
+              '(not p)))
+(-> e
+  (step-f "impl-e" 1 3)) ; <- Modus Tollens
+
+; (f)
+(def f (infer '(impl (and p q) p)))
+(-> f
+  (step-b "impl-i" 2)
+  (step-f "and-e1" 1))
+
+; (g)
+(def g (infer '[p]
+              '(impl (impl p q) q)))
+(-> g
+  (step-b "impl-i" 3)
+  (step-f "impl-e" 1 2))
+
+; (h)
+(def h (infer '[(and (impl p r)
+                     (impl q r))]
+              '(impl (and p q) r)))
+(-> h
+  (step-b "impl-i" 3)
+  (step-f "and-e1" 1)) ; <- Error "No open line to work towards to"
+(-> h
+  (step-f "and-e1" 1)
+  (step-b "impl-i" 4)
+  (step-f "and-e1" 3)
+  (step-f "impl-e" 2 4))
+
+; (i)
+(def i (infer '[(impl q r)]
+              '(impl (impl p q)
+                     (impl p r))))
+(-> i
+  (step-b "impl-i" 3)
+  (step-b "impl-i" 4)
+  (step-f "impl-e" 2 3)
+  (step-f "impl-e" 1 4))
+
+; (j)
+(def j (infer '[(impl p q) (impl r s)]
+              '(impl (or p r) (or q s))))
+(-> j
+  (step-b "impl-i" 4)) ; <- "or-e" rule
+  (step-f "")
+  
+; (k)
+(def k (infer '[(and (or p (impl q p)) q)]
+              'p))
+(-> k
+  (step-f "and-e1" 1)
+  (step-f "and-e2" 1)) ; <- "or-e" rule
+
+; (l)
+(def l (infer '[(impl p q) (impl r s)]
+              '(impl (and p r) (and q s))))
+(-> l
+  (step-b "impl-i" 4)
+  (step-f "and-e1" 3)
+  (step-f "and-e2" 3)
+  (step-f "impl-e" 1 5)
+  (step-f "impl-e" 2 4)
+  (step-b "and-i" 9))
+
+; (m)
+(def m (infer '[(and (impl p q) r)]
+              '(and (impl p q) (impl p r))))
+(-> m
+  (step-b "and-i" 3)
+  (step-b "impl-i" 3) ; <- kills "todo"
+  (step-b "impl-i" 6)) ; <- warum geht das?
+
+; (n)
+(def n (infer '[(or p (and p q))] 'p))
+(-> n
+  (step-f "")) ; <- "or-e" rule
+
+; (o)
+(def o (infer '[(or (and p q) (and p r))]
+              '(and p (or q r))))
+; "or-e" rule
+
+
+; (18) a - e
+; (a)
+(def a (infer '(impl (impl (impl p q) p) p)))
+(-> a
+  (step-b "impl-i" 2)
+  (step-b "raa" 3)
+  (step-b "not-e" 4))
+
+; (b)
+(def b (infer '[(not (and p q))]
+              '(or (not p) (not q))))
+(-> b
+  (step-b "raa" 3)
+  (step-f "not-e" )) ; siehe (a)
+
+; (c)
+(def c (infer '[(or (not p) (not q))]
+              '(not (and p q))))
+(-> c
+  (step-b "not-i" 3)
+  (step-f "and-e1" 2)
+  (step-f "and-e2" 2)
+  (step-b "or-e" 6)) ; <- Möglichkeit Variablen Umzubenennen fehlt
+
+; (d)
+(def d (infer '[(not (or p q))]
+              '(and (not p) (not q))))
+(-> d
+  (step-b "and-i" 3)
+  (step-b "not-i" 3)
+  (step-b "not-i" 6))
+; need "not-e" backwards + var renaming
+
+; (e)
+(def e (infer '[(and (not p) (not q))]
+              '(not (or p q))))
+(-> e
+  (step-b "not-i" 3))
+; need var renaming
+
+
+; Prädikatenlogik
+; (12) a - c
+; (13) a - d
+; (11) a - j
+; (a)
+(def a (infer '[(not (forall [x] (P x)))]
+              '(exists [x] (not (P x)))))
+(-> a
+  (step-b "raa" 3) ; fehlt var renaming
+;  (step-f "
+  
+  
+  
+  
+  
+  
+  

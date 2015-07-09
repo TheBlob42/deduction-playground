@@ -194,8 +194,9 @@
                                                     :rule (pr-str rule ids)}) new-proof rest)))))
 
 (defn create-item
-  [body]
-  (if (contains? #{'infer} (first body))
+  [body] 
+  (if (and (list? body)
+           (contains? #{'infer} (first body)))
     (condp = (first body)
       'infer (eval (conj (map #(list `quote %) (rest body)) 'infer)))
     {:id (new-id)
@@ -222,13 +223,23 @@
             match-ids (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) (filter #(contains? (set match) (:body %)) results))
             rest (remove #(contains? bresults %) res)
             rest-items (map create-item rest)
-            rest-ids (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)
-            new-proof (if (empty? rest) 
-                        (scope/remove-item proof (first todos))
-                        (reduce #(scope/add-before-item %1 item %2) proof rest-items))]
-        (scope/change-item new-proof item {:id (:id item)
-                                           :body (:body item)
-                                           :rule (pr-str rule (concat match-ids rest-ids))})))))
+            rest-ids (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)]
+        (cond-> (reduce #(scope/add-before-item %1 item %2) proof rest-items)
+          (or (empty? rest)
+              (every? vector? rest-items)) (scope/remove-item (first todos))
+          true (scope/change-item item {:id (:id item)
+                                        :body (:body item)
+                                        :rule (pr-str rule (concat match-ids rest-ids))}))))))
+                                        
+          
+;            new-proof (if (or (empty? rest)
+;                              (every? vector? rest-items))
+;                        (scope/remove-item proof (first todos))
+;                        proof)
+;            new-proof2 (reduce #(scope/add-before-item %1 item %2) new-proof rest-items)]
+;        (scope/change-item new-proof2 item {:id (:id item)
+;                                            :body (:body item)
+;                                            :rule (pr-str rule (concat match-ids rest-ids))})))))
 
   
   
