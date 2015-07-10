@@ -11,7 +11,6 @@
 
 ;TODO
 ; - erlaubte operatoren (Terminale)
-; - Regeln rückwärts ausführen (-> einfach :given und :conclusion vertauschen)
 
 (defn gen-arg 
   "Turns an input into an argument for the logic function: symbols are passed trough, lists are numbered"
@@ -148,6 +147,7 @@
           fn-args (concat args-list logic-args)]
      (eval (list `run* logic-args (conj fn-args fn)))))
  
+ ;TODO Copy "permutations" function from combo-namespace (we don't need the rest)
   (defn apply-rule1
    "Applies a rule to the given arguments and returns the result(s)"
    [name forward? & args]

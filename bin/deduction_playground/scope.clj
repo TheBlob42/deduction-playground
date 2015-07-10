@@ -1,26 +1,48 @@
 (ns deduction-playground.scope)
 
-(def p [1 2 [3 4] [5 [6 7 8] 9] 10 11])
+(defn get-todo
+  "Returns all empty items (:body = :todo) of a scope"
+  [scope]
+  (filter #(= (:body %) :todo) scope))
 
-(def p1 '[{:id 1 :body (and (impl p r) (impl q r)) :rule :premise}
-          {:id 2 :body (impl p r) :rule "and-e1"}
-          [{:id 3 :body (and p q) :rule :assumption}
-           {:id 4 :body :todo :rule nil}
-           {:id 5 :body r :rule nil}]
-          {:id 6 :body (impl (and p q) r) :rule nil}])
+(defn get-conclusions
+  "Returns all possible conclusion items (no subproof, not empty, :rule = nil) of a scope.
+Only items before the :todo-item are returned"
+  [scope]
+  (filter #(and (map? %)
+                (nil? (:rule %))
+                (not= (:body %) :todo)) scope))
 
-(def p2 '[{:id 1 :body (impl p q) :rule :premise}
-          {:id 2 :body (impl r s) :rule :premise}
-          [{:id 3 :body (or p r) :rule :assumption}
-           [{:id 4 :body p :rule :assumption}
-            {:id 5 :body :todo :rule nil}
-            {:id 6 :body (or q s) :rule nil}]
-           [{:id 7 :body r :rule :assumption}
-            {:id 8 :body :todo :rule nil}
-            {:id 9 :body (or q s) :rule nil}]
-           {:id 10 :body (or q s) :rule "or-e (3 [4-6] [7-9])"}]
-          {:id 11 :body (impl (or p r) (or q s)) :rule "impl-i ([3 - 10])"}])
+(defn get-premises
+  "Returns all items that are already proofed (premise, assumption or by rule)"
+  [scope]
+  (rest (drop-while #(not= (:body %) :todo) (reverse scope))))
+  
+(defn scope-for-item
+  [proof item]
+  (if (contains? (set proof) item)
+    {:scope proof
+     :sub-scope proof}
+    (loop [p proof
+           scope []]
+      (cond (empty? p) nil
+            (vector? (first p))
+            (if-let [info (scope-for-item (first p) item)]
+              {:scope (into [] (concat scope (:scope info)))
+               :sub-scope (:sub-scope info)}
+              (recur (subvec p 1) (conj scope (first p))))
+            :else (recur (subvec p 1) (conj scope (first p)))))))
 
+(defn get-scope
+  [proof item]
+  (let [info (scope-for-item proof item)]
+    {:scope (:scope info)
+     :todo (get-todo (:sub-scope info))
+     :premises (get-premises (:scope info))
+     :conclusions (get-conclusions (:sub-scope info))}))
+
+
+;TODO should these options be in its own namespace (e.g. proof, step)?
 (defn get-item-on-line
   "Returns a line or subproof from the given proof
 x => returns line x
@@ -36,41 +58,6 @@ x => returns line x
         (vector? (first p)) (recur (into [] (concat (first p) (subvec p 1))) l)
         :else (recur (subvec p 1) (inc l))))))
 
-(defn scope-for-elem
-  ([proof elem] (scope-for-elem proof elem 1))
-  ([proof elem actual]
-   (if (contains? (set proof) elem)
-     proof
-     (loop [p proof
-            s []
-            l actual]
-       (cond 
-         (empty? p) nil
-         (vector? (first p))
-         (if-let [v (scope-for-elem (first p) elem l)]
-           (into [] (concat s v))
-           (recur (subvec p 1) (conj s (first p)) (inc l))) 
-         :else (recur (subvec p 1) (conj s (first p)) (inc l)))))))
-
-(defn scope-for-line
-  [proof line]
-  (scope-for-elem proof (get-item-on-line proof line)))
-
-(defn get-todo
-  "Returns all empty items (:body = :todo) of a scope"
-  [scope]
-  (filter #(= (:body %) :todo) scope))
-
-(defn get-result
-  "Returns all possible result items (no subproof, not empty, :rule = nil) of a scope"
-  [scope]
-  (filter #(and (map? %)
-                (nil? (:rule %))
-                (not= (:body %) :todo)) scope))
-
-  
-
-;TODO add-before, add-after
 (defn edit-proof
   [proof item newitem mode]
   (let [index (.indexOf proof item)]

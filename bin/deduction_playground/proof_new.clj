@@ -7,40 +7,48 @@
   (swap! id inc))
 
 (defn infer
-  "Creates a proof from the given premise(s) (optional | use a vector for multiple ones) and a formula"
+  "Creates a proof of the given premises (optional, vector for multiples) and the formula"
   ([formula] (infer [] formula))
-  ([premises formula]
-    (reset! id 0)
-    (let [prem (if (vector? premises) 
+  ([premises formula & [superproof?]]
+    (let [desc (if superproof? :premise :assumption)
+          prem (if (vector? premises) 
                  (into [] (map #(hash-map :id (new-id)
                                           :body %
-                                          :rule :premise) premises))
-                 [{:id (new-id) :body premises :rule :premise}])
+                                          :rule desc) premises))
+                 [{:id (new-id) :body premises :rule desc}])
           todo {:id (new-id) :body :todo :rule nil}
           form {:id (new-id) :body formula :rule nil}]
       (conj prem todo form))))
 
 (defn rev-infer
-  "Creates \"(infer [premises] formula)\" like depiction of a given (sub)proof"
+  "Creates \"(infer [premises] formula)\" like depiction of the given (sub)proof"
   [proof]
   (let [premises (into [] (map #(:body %) (filter #(or (= (:rule %) :assumption)
                                                        (= (:rule %) :premise)) proof)))]
     `(~'infer ~premises ~(:body (last proof)))))
+
+(defn proof
+  "Starts a new superproof"
+  ([formula] (proof [] formula))
+  ([premises formula]
+    (reset! id 0)
+    (apply infer [premises formula true])))
 
 (defn line-to-id
   [proof line]
   (if (not (vector? line))
     (:id (nth (flatten proof) (dec line)))
     [(line-to-id proof (first line)) (line-to-id proof (last line))]))
-  
 
 (defn id-to-line
   [proof id]
-  (loop [p (flatten proof)
-         l 1]
-    (if (= (:id (first p)) id)
-      l
-      (recur (rest p) (inc l)))))
+	(if (not (vector? id))
+	  (loop [p (flatten proof)
+	         l 1]
+	    (if (= (:id (first p)) id)
+	      l
+	      (recur (rest p) (inc l))))
+	  [(id-to-line proof (first id)) (id-to-line proof (last id))]))
 
 (defn between [x y] [x y])
 
@@ -78,39 +86,37 @@
     ; args distinct?
     ; all lines in range of proof?
     forward?
-    (let [lastline (last (sort-by #(if (vector? %) (first %) %) lines))
-          items (map #(get-item proof %) lines)
-          scope (scope/scope-for-elem proof (get-item proof lastline))
-;          arg-scope (take-while #(not (contains? (set todos) %)) scope)
-          todos (scope/get-todo scope)
-          results (scope/get-result scope)]
+    (let [lastline    (last (sort-by #(if (vector? %) (first %) %) lines))
+          items       (map #(get-item proof %) lines)
+          scope-info  (scope/get-scope proof (get-item proof lastline))
+          scope       (:scope scope-info)
+          todos       (:todo scope-info)
+          conclusions (:conclusions scope-info)]
       (cond
         (not-every? #(contains? (set scope) %) items)
         (println "Not all in same scope")
-        
-        (empty? todos)
-        (println "No open line to work towards")
+
+        (> (count todos) 1)
+        (println "There can't be more than one :todo line")
         
         (some #(contains? (set items) %) todos)
         (println "Can't use empty line for forward resulting")
         
-        (some #(contains? (set items) %) results)
-        (println "Can't use result line for forward resulting")
-        
-;        (not-every? #(contains? (set arg-scope) %) items)
-;        (println "Can't use items from before and from behind the todo-line")
-        
+        (some #(contains? (set items) %) conclusions)
+        (println "Can't use conclusion line for forward resulting")
+            
         :else {:lastline lastline
                :items items
-               :todos todos
-               :results results}))
+               :todo (first todos)
+               :conclusions conclusions}))
     
     (not forward?)
-    (let [line (first lines)
-          item (get-item proof line)
-          scope (scope/scope-for-elem proof item)
-          todos (scope/get-todo scope)
-          results (rest (drop-while #(not= (first todos) %) (reverse scope)))]
+    (let [line     (first lines)
+          item     (get-item proof line)
+          scope-info (scope/get-scope proof item)
+          scope    (:scope scope-info)
+          todos    (:todo scope-info)
+          premises (:premises scope-info)]
       (cond 
         ; More than one line
         ; No todos
@@ -118,9 +124,8 @@
         ; Used a line with rule != nil to start from
         ; Used a todo line to start from
         :else {:item item
-               :todos todos
-               :results results}))
-    ))
+               :todo (first todos)
+               :premises premises}))))
 
 (defn item-to-rule-arg
   [item]
@@ -128,120 +133,112 @@
     (:body item)
     (rev-infer item)))
 
+(defn create-item
+  ([body] (create-item body nil))
+  ([body rule]
+	  (if (and (coll? body)
+	           (contains? #{'infer} (first body)))
+     (condp = (first body)
+	      'infer (eval (conj (map #(list `quote %) (rest body)) 'infer)))
+	    {:id (new-id)
+	     :body body
+	     :rule rule})))
+
+; TODO not only check the conclusions but the premises as well
 (defn choose-option
   [proof line option]
   (let [item (get-item proof line)
         options (:body item)
-        o (get options option)]
+        opt (get options option)]
     (cond 
       (not (map? options))
       (throw (Exception. (str "There is nothing to choose in line " line)))
       
-      (nil? o)
-      (throw (Exception. (str "There is no optionsion " option " to choose")))
+      (nil? opt)
+      (throw (Exception. (str "There is no option \"" option "\" to choose")))
       
       :else
-      (let [scope (scope/scope-for-line proof line)
-            todos (scope/get-todo scope)
-            results (scope/get-result scope)
-            res (if (vector? o) o [o])
-            match (filter #(= % (:body (first results))) res)
-            rest (remove #(= % (:body (first results))) res)
-            new-proof (if (not (empty? match))
-                        (scope/remove-item (scope/change-item proof (first results) {:id (:id (first results))
-                                                                                     :body (:body (first results))
-                                                                                     :rule (:rule item)}) 
-                                           (first todos))
-                        proof)]
-        (scope/remove-item (reduce #(scope/add-after-item %1 item {:id (new-id)
-                                                                   :body %2
-                                                                   :rule (:rule item)}) new-proof rest) item)))))
-
+      (let [items (if (vector? opt) opt [opt])
+            scope-info  (scope/get-scope proof item)
+            todo-item   (first (:todo scope-info))
+            conc-items  (:conclusions scope-info)
+            conclusions (set (map :body conc-items))
+            match-items (filter #(contains? (set items) (:body %)) conc-items)
+            rest        (remove #(contains? conclusions %) items)
+            rest-items  (map #(create-item % (:rule item)) rest)
+            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+                                                  :body (:body %2)
+                                                  :rule (:rule item)}) proof match-items)
+            p2 (reduce #(scope/add-after-item %1 item %2) p1 rest-items)
+            p3 (scope/remove-item p2 item)]
+        (if (= (count conc-items) (count match-items))
+          (scope/remove-item p3 todo-item) p3)))))
 
 (defn step-f
   [proof rule & lines]
-  (let [info   (check-args proof rule lines true)
-        lastline (:lastline info)
-        items  (:items info)
-        todos  (:todos info)
-        results (:results info)
+  (let [info         (check-args proof rule lines true)
+        lastline     (:lastline info)
+        line-items   (:items info)
+        todo-item    (:todo info)
+        conc-items   (:conclusions info)
         ids (map #(line-to-id proof %) lines)
-        rule-args (map #(item-to-rule-arg %) items)
+        rule-args (map #(item-to-rule-arg %) line-items)
         rule-result (apply log/apply-rule1 (concat [rule true] rule-args))]
     (cond
       (empty? rule-result)
-      (throw (Exception. "Incorrect parameters for the given rule"))
+      (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
       
+      ; user has to choose which is the right permutation
       (> (count rule-result) 1)
       (scope/add-after-line proof 
                             lastline 
-                            {:id (new-id)
+                            {:id   (new-id)
                              :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
                              :rule (pr-str rule ids)}) 
       
       :else
-      (let [res (if (vector? (first rule-result)) (first rule-result) rule-result)
-            match (filter #(= % (:body (first results))) res)
-            rest (remove #(= % (:body (first results))) res)
-            new-proof (if (not (empty? match))
-                        (scope/remove-item (scope/change-item proof (first results) {:id (:id (first results))
-                                                                                     :body (:body (first results))
-                                                                                     :rule (pr-str rule ids)}) 
-                                           (first todos))
-                        proof)]
-        (reduce #(scope/add-after-line %1 lastline {:id (new-id)
-                                                    :body %2
-                                                    :rule (pr-str rule ids)}) new-proof rest)))))
-
-(defn create-item
-  [body] 
-  (if (and (list? body)
-           (contains? #{'infer} (first body)))
-    (condp = (first body)
-      'infer (eval (conj (map #(list `quote %) (rest body)) 'infer)))
-    {:id (new-id)
-     :body body
-     :rule nil}))
+      (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)
+            conclusions (set (map :body conc-items))
+            matches     (filter #(contains? conclusions %) result)
+            rest        (remove #(contains? conclusions %) result)
+            match-items (filter #(contains? (set matches) (:body %)) conc-items)
+            rest-items  (map #(create-item % (pr-str rule ids)) rest)
+            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+                                                  :body (:body %2)
+                                                  :rule (pr-str rule ids)}) proof match-items)
+            p2 (reduce #(scope/add-after-line %1 lastline %2) p1 rest-items)]
+        (if (= (count conc-items) (count match-items))
+          (scope/remove-item p2 todo-item) p2)))))
       
-
+; TODO backward step with more than one line
 (defn step-b
   [proof rule & lines]
   (let [info (check-args proof rule lines false)
-        item (:item info)
-        todos (:todos info)
-        results (:results info)
-        rule-args (item-to-rule-arg item)
+        line-item (:item info)
+        todo-item (:todo info)
+        prem-items (:premises info)
+        rule-args (item-to-rule-arg line-item)
         rule-result (apply log/apply-rule1 (concat [rule false] (list rule-args)))]
     (cond
       (empty? rule-result)
       (throw (Exception. "Incorrect parameters for the given rule"))
       
       :else
-      (let [res (if (vector? (first rule-result)) (first rule-result) rule-result)
-            bresults (set (map :body results))
-            match (filter #(contains? bresults %) res)
-            match-ids (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) (filter #(contains? (set match) (:body %)) results))
-            rest (remove #(contains? bresults %) res)
-            rest-items (map create-item rest)
-            rest-ids (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)]
-        (cond-> (reduce #(scope/add-before-item %1 item %2) proof rest-items)
-          (or (empty? rest)
-              (every? vector? rest-items)) (scope/remove-item (first todos))
-          true (scope/change-item item {:id (:id item)
-                                        :body (:body item)
-                                        :rule (pr-str rule (concat match-ids rest-ids))}))))))
-                                        
-          
-;            new-proof (if (or (empty? rest)
-;                              (every? vector? rest-items))
-;                        (scope/remove-item proof (first todos))
-;                        proof)
-;            new-proof2 (reduce #(scope/add-before-item %1 item %2) new-proof rest-items)]
-;        (scope/change-item new-proof2 item {:id (:id item)
-;                                            :body (:body item)
-;                                            :rule (pr-str rule (concat match-ids rest-ids))})))))
-
-  
+      (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)
+            premises  (set (map :body prem-items))
+            matches   (filter #(contains? premises %) result)
+            rest      (into [] (remove #(contains? premises %) result))
+            match-items (filter #(contains? (set matches) (:body %)) prem-items)
+            match-ids   (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) match-items)
+            rest-items  (map create-item rest)
+            rest-ids    (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)
+            p1 (reduce #(scope/add-before-item %1 line-item %2) proof rest-items)
+            p2 (scope/change-item p1 line-item {:id   (:id line-item)
+                                                :body (:body line-item)
+                                                :rule (pr-str rule (concat match-ids rest-ids))})]
+        (if (or (empty? rest) (every? vector? rest-items))
+          (scope/remove-item p2 todo-item) p2)))))
+ 
   
       
       
