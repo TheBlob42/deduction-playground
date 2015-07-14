@@ -1,6 +1,8 @@
 (ns deduction-playground.deduction-test
   (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]))
 
+STOP
+
 ; Aussagenlogik:
 ; (16) a - f
 ; (a)
@@ -27,7 +29,7 @@
 (-> d
   (step-b "raa" 2)
   (step-b "not-e" 3)
-  (rename-var 'V1 '(or p (not p))) ; die doppelte Zeile wird entfernt, die "id" wird aber nicht angepasst
+  (rename-var 'V1 '(or p (not p))); die doppelte Zeile wird entfernt, die "id" wird aber nicht angepasst
   (step-b "or-i2" 3)
   (step-b "not-i" 3)
   (step-f "or-i1" 2)

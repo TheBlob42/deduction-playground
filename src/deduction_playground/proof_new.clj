@@ -3,6 +3,7 @@
             [deduction-playground.scope :as scope]))
 
 ; Take a look at "postwalk" from clojure.walk
+; replace (filter #(contains? set %) coll) with (filter set coll)
 
 (def id (atom 0))
 (defn new-id []
@@ -143,6 +144,36 @@
           (recur (subvec p 1) np)
           (recur (subvec p 1) (conj np (first p))))))))
 
+; TEST
+(defn remove-duplicates1
+  [proof]
+  (let [duplicates (set (for [[body freq] (frequencies (map :body (remove vector? proof)))
+                              :when (> freq 1)]
+                          body))
+        duplicate-items (filter #(contains? duplicates (:body %)) proof)
+        stay-ids     (map :id (filter :rule duplicate-items))
+        delete-items (remove :rule duplicate-items)
+        delete-ids   (map :id delete-items)
+        new-proof (into [] (map #(if (vector? %) (remove-duplicates1 %) %) (remove (set delete-items) proof)))
+        meta (apply merge (map meta (filter vector? new-proof)))]
+    (with-meta new-proof (merge (reduce #(assoc %1 %2 (last stay-ids)) {} delete-ids) meta))))
+
+(defn correct-ids
+  [proof]
+  (let [meta  (meta proof)
+        regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map key meta)))  
+        smap  (apply merge (map #(hash-map (str (key %)) (str (val %))) meta))]
+    (if (not-empty meta)
+      (clojure.walk/postwalk 
+        (fn [node]
+          (if (vector? node)
+            node
+            (if (string? (:rule node))
+              (assoc node :rule (clojure.string/replace (:rule node) regex #(get smap %)))
+              node))) proof)
+      proof)))
+    
+
 (defn remove-todos
   "Removes all todo-lines, if all lines inside the scope are solved (rule =! nil)"
   [proof]
@@ -159,16 +190,32 @@
           
 (defn check-duplicates
   [proof]
-  (remove-todos (remove-duplicates proof)))
+  (remove-todos (correct-ids (remove-duplicates1 proof))))
+
+(defn rename-var
+  [proof old new]
+  (check-duplicates
+    (clojure.walk/postwalk
+      (fn [node]
+        (if (map? node)
+          (cond
+	          (= (:body node) :todo) node
+	          (symbol? (:body node)) (if (= (:body node) old)
+                                     (assoc node :body new) 
+                                     node)
+	          :else (assoc node :body (replace {old new} (:body node)))) 
+          node)) 
+      proof)))
+          
     
 ; Take a look at postwalk-replace and prewalk-replace
-(defn rename-var
+(defn rename-var1
   "Renames a certain variable inside the proof"
   [proof old new]
   (loop [p proof
          np []]
     (cond
-      (empty? p) (check-duplicates np)
+      (empty? p) np
       (vector? (first p)) (recur (subvec p 1) (conj np (rename-var (first p) old new)))
       (= (:body (first p)) :todo) (recur (subvec p 1) (conj np (first p)))
       (symbol? (:body (first p)))
