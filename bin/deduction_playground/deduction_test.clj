@@ -151,7 +151,11 @@
               'p))
 (-> k
   (step-f "and-e1" 1)
-  (step-f "and-e2" 1)) ; <- "or-e" rule
+  (step-f "and-e2" 1) 
+  (step-b "or-e" 5)
+  (rename-var 'V1 'p)
+  (rename-var 'V2 '(impl q p))
+  (step-f "impl-e" 2 5)) ; falsche ids (ganz besonders extrem)
 
 ; (l)
 (def l (proof '[(impl p q) (impl r s)]
@@ -180,12 +184,31 @@
 ; (n)
 (def n (proof '[(or p (and p q))] 'p))
 (-> n
-  (step-f "")) ; <- "or-e" rule
+  (step-b "or-e" 3) 
+  (rename-var 'V1 'p)
+  (rename-var 'V2 '(and p q))
+  (step-f "and-e1" 3)) ; ids falsch übernommen...
 
 ; (o)
 (def o (proof '[(or (and p q) (and p r))]
               '(and p (or q r))))
-; "or-e" rule
+(-> o
+  (step-b "or-e" 3)
+  (rename-var 'V1 '(and p q))
+  (rename-var 'V2 '(and p r))
+  (step-f "and-e1" 2)
+  (step-f "and-e2" 2)
+  (step-f "or-i1" 3)
+  (rename-var 'V3 'r)
+  (step-f "and-i" 4 5)
+  (choose-option 6 2)
+  (step-f "and-e1" 7)
+  (step-f "and-e2" 7)
+  (step-f "or-i2" 8)
+  (rename-var 'V4 'q)
+  (step-f "and-i" 9 10)
+  (choose-option 11 2)) ; ids stimmen wieder nicht
+  
 
 
 ; (18) a - e
