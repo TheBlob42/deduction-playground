@@ -1,5 +1,5 @@
 (ns deduction-playground.deduction-test
-  (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option]]))
+  (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]))
 
 ; Aussagenlogik:
 ; (16) a - f
@@ -26,7 +26,14 @@
 (def d (proof '(or p (not p))))
 (-> d
   (step-b "raa" 2)
-  (step-b "not-e" 3)) ; <- Problem!
+  (step-b "not-e" 3)
+  (rename-var 'V1 '(or p (not p))) ; die doppelte Zeile wird entfernt, die "id" wird aber nicht angepasst
+  (step-b "or-i2" 3)
+  (step-b "not-i" 3)
+  (step-f "or-i1" 2)
+  (rename-var 'V2 '(not p))
+  (step-f "not-e" 1 3))
+  
 
 ; (e)
 (def e (proof '[(impl p q)]
@@ -129,8 +136,15 @@
 (def j (proof '[(impl p q) (impl r s)]
               '(impl (or p r) (or q s))))
 (-> j
-  (step-b "impl-i" 4)) ; <- "or-e" rule
-  (step-f "")
+  (step-b "impl-i" 4)
+  (step-b "or-e" 5)
+  (rename-var 'V1 'p)
+  (rename-var 'V2 'r) ; doppelte Zeile wird entfernt, aber id nicht angepasst
+  (step-f "impl-e" 1 4)
+  (step-b "or-i1" 7)
+  (step-f "impl-e" 2 7)
+  (step-b "or-i2" 10))
+
   
 ; (k)
 (def k (proof '[(and (or p (impl q p)) q)]

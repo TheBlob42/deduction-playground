@@ -1,10 +1,16 @@
 (ns deduction-playground.proof-new
   (:require [deduction-playground.auto-logic :as log]
-            [deduction-playground.scope :as scope]))5
+            [deduction-playground.scope :as scope]))
+
+; Take a look at "postwalk" from clojure.walk
 
 (def id (atom 0))
 (defn new-id []
   (swap! id inc))
+
+(def var-id (atom 0))
+(defn new-var []
+  (symbol (str 'V (swap! var-id inc))))
 
 (defn infer
   "Creates a proof of the given premises (optional, vector for multiples) and the formula"
@@ -32,6 +38,7 @@
   ([formula] (proof [] formula))
   ([premises formula]
     (reset! id 0)
+    (reset! var-id 0)
     (apply infer [premises formula true])))
 
 (defn line-to-id
@@ -52,20 +59,6 @@
 
 (defn between [x y] [x y])
 
-;(defn get-item
-;  "Returns a line or subproof from the given proof"
-;  [proof id]
-;  (if (not (vector? id))
-;    (nth (flatten proof) (dec (id-to-line proof id)))
-;    (loop [p proof]
-;      (let [item (first p)]
-;        (cond
-;          (nil? item) nil
-;          (vector? item) (if (and (= (:id (first item)) (first id))
-;                                  (= (:id (last item)) (last id)))
-;                           item
-;                           (recur (into [] (concat item (subvec p 1)))))
-;          :else (recur (subvec p 1)))))))
 (defn get-item
   [proof line]
   (if (not (vector? line))
@@ -133,16 +126,92 @@
     (:body item)
     (rev-infer item)))
 
+(defn remove-duplicates
+  "Removes lines with duplicate body, only lines without a rule (= nil) are removed"
+  [proof]
+  (let [duplicates (set (for [[body freq] (frequencies (map :body (remove vector? proof)))
+                              :when (> freq 1)]
+                          body))]
+    (loop [p proof
+           np []]
+      (cond 
+        (empty? p) np
+        (vector? (first p)) (recur (subvec p 1) (conj np (remove-duplicates (first p))))
+        :else 
+        (if (and (contains? duplicates (:body (first p)))
+                 (nil? (:rule (first p))))
+          (recur (subvec p 1) np)
+          (recur (subvec p 1) (conj np (first p))))))))
+
+(defn remove-todos
+  "Removes all todo-lines, if all lines inside the scope are solved (rule =! nil)"
+  [proof]
+  (let [solved (< (count (remove :rule (remove #(= (:body %) :todo) (remove vector? proof)))) 1)]
+    (loop [p proof
+           np []]
+      (cond 
+        (empty? p) np
+        (vector? (first p)) (recur (subvec p 1) (conj np (remove-todos (first p))))
+        :else 
+        (if (and solved (= (:body (first p)) :todo))
+          (recur (subvec p 1) np)
+          (recur (subvec p 1) (conj np (first p))))))))
+          
+(defn check-duplicates
+  [proof]
+  (remove-todos (remove-duplicates proof)))
+    
+; Take a look at postwalk-replace and prewalk-replace
+(defn rename-var
+  "Renames a certain variable inside the proof"
+  [proof old new]
+  (loop [p proof
+         np []]
+    (cond
+      (empty? p) (check-duplicates np)
+      (vector? (first p)) (recur (subvec p 1) (conj np (rename-var (first p) old new)))
+      (= (:body (first p)) :todo) (recur (subvec p 1) (conj np (first p)))
+      (symbol? (:body (first p)))
+      (if (= (:body (first p)) old)
+        (recur (subvec p 1) (conj np {:id   (:id (first p))
+                                      :body new 
+                                      :rule (:rule (first p))}))
+        (recur (subvec p 1) (conj np (first p))))
+      :else (recur (subvec p 1) (conj np {:id   (:id (first p))
+                                          :body (replace {old new} (:body (first p)))
+                                          :rule (:rule (first p))})))))
+                                                     
+(defn init-vars
+  [bodies]
+  (let [vars (set (filter #(.startsWith (str %) "_") (flatten bodies)))
+        smap (reduce #(assoc %1 %2 (new-var)) {} vars)
+        new-bodies (map #(if (symbol? %)
+                           (if (contains? vars %)
+                             (get smap %) %)
+                           (replace smap %)) bodies)]
+    (println bodies)
+    new-bodies))
+
 (defn create-item
   ([body] (create-item body nil))
   ([body rule]
 	  (if (and (coll? body)
 	           (contains? #{'infer} (first body)))
-     (condp = (first body)
-	      'infer (eval (conj (map #(list `quote %) (rest body)) 'infer)))
-	    {:id (new-id)
-	     :body body
-	     :rule rule})))
+     (do 
+       (condp = (first body)
+         'infer (eval (conj (map #(list `quote %) (rest body)) 'infer))))
+     {:id   (new-id)
+	    :body body
+	    :rule rule})))
+
+(defn create-items
+  "Takes a list of line bodies (and a optional rule) and creates items for the proof"
+  ([bodies] (create-items bodies nil))
+  ([bodies rule]
+    (println bodies rule)
+    (let [newb (init-vars bodies)]
+      (map #(create-item % rule) newb))))
+
 
 ; TODO not only check the conclusions but the premises as well
 (defn choose-option
@@ -165,7 +234,7 @@
             conclusions (set (map :body conc-items))
             match-items (filter #(contains? (set items) (:body %)) conc-items)
             rest        (remove #(contains? conclusions %) items)
-            rest-items  (map #(create-item % (:rule item)) rest)
+            rest-items  (create-items rest (:rule item));(map #(create-item % (:rule item)) rest)
             p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
                                                   :body (:body %2)
                                                   :rule (:rule item)}) proof match-items)
@@ -202,7 +271,7 @@
             matches     (filter #(contains? conclusions %) result)
             rest        (remove #(contains? conclusions %) result)
             match-items (filter #(contains? (set matches) (:body %)) conc-items)
-            rest-items  (map #(create-item % (pr-str rule ids)) rest)
+            rest-items  (create-items rest (pr-str rule ids));(map #(create-item % (pr-str rule ids)) rest)
             p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
                                                   :body (:body %2)
                                                   :rule (pr-str rule ids)}) proof match-items)
@@ -230,7 +299,7 @@
             rest      (into [] (remove #(contains? premises %) result))
             match-items (filter #(contains? (set matches) (:body %)) prem-items)
             match-ids   (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) match-items)
-            rest-items  (map create-item rest)
+            rest-items  (create-items rest);(map create-item rest)
             rest-ids    (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)
             p1 (reduce #(scope/add-before-item %1 line-item %2) proof rest-items)
             p2 (scope/change-item p1 line-item {:id   (:id line-item)

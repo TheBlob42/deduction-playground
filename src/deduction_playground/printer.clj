@@ -4,6 +4,8 @@
 (def distance 30)
 (def divider-length 40)
 
+; Take a look at "dotimes [] (print "")"
+
 (defn print-proof-line
   [line depth body rule]
   (let [sbody (if (= body :todo) "..." (pr-str body))

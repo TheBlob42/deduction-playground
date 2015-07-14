@@ -1,5 +1,7 @@
 (ns deduction-playground.scope)
 
+; Take a look at postwalk and prewalk from clojure.walk
+
 (defn get-todo
   "Returns all empty items (:body = :todo) of a scope"
   [scope]
