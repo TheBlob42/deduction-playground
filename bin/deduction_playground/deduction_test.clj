@@ -262,8 +262,11 @@ STOP
 (def a (proof '[(not (forall [x] (P x)))]
               '(exists [x] (not (P x)))))
 (-> a
-  (step-b "raa" 3) ; fehlt var renaming
-;  (step-f "
+  (step-b "raa" 3) 
+  (step-b "not-e" 4)
+  (rename-var 'V1 '(forall [x] (P x)))
+  (step-b "forall-i" 4)
+  (step-b "raa" 5))
   
   
   

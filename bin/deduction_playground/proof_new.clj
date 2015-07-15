@@ -127,38 +127,45 @@
     (:body item)
     (rev-infer item)))
 
+
+;(defn remove-duplicates
+;  "Removes lines with duplicate bodies from the given proof.
+;Moves recursive over all inner vectors, but only removes duplicates within a vector level.
+;The ids of the deleted and remaining items will be saved as meta-data, for further use."
+;  [proof]
+;  (let [duplicates      (set (map first (filter #(> (val %) 1) (frequencies (map :body (remove vector? proof))))))
+;        duplicate-items (filter #(contains? duplicates (:body %)) proof)
+;        remain-ids   (map :id (filter :rule duplicate-items)) ; items with a rule (e.g. :assumption, :premise, "<string>") will remain
+;        delete-items (remove :rule duplicate-items)
+;        delete-ids   (map :id delete-items) ; items without a rule (:rule = nil) will be deleted
+;        new-proof (into [] (map #(if (vector? %) (remove-duplicates %) %) (remove (set delete-items) proof)))
+;        child-meta (apply merge (map meta (filter vector? new-proof)))
+;        meta       (reduce #(assoc %1 %2 (last remain-ids)) {} delete-ids)]
+;    (with-meta new-proof (merge meta child-meta))))
+
 (defn remove-duplicates
-  "Removes lines with duplicate body, only lines without a rule (= nil) are removed"
-  [proof]
-  (let [duplicates (set (for [[body freq] (frequencies (map :body (remove vector? proof)))
-                              :when (> freq 1)]
-                          body))]
-    (loop [p proof
-           np []]
-      (cond 
-        (empty? p) np
-        (vector? (first p)) (recur (subvec p 1) (conj np (remove-duplicates (first p))))
-        :else 
-        (if (and (contains? duplicates (:body (first p)))
-                 (nil? (:rule (first p))))
-          (recur (subvec p 1) np)
-          (recur (subvec p 1) (conj np (first p))))))))
+  "Checks proof for duplicate lines that are in the same scope and deletes them if possible.
+The ids of the deleted lines and their replacement will be saved as meta-data in the form {deleted-id replacement-id [...]}"
+  ([proof] (remove-duplicates proof proof))
+  ([proof sub]
+    (let [parent-meta (meta proof); why gets the meta-data lost when we move this definition some lines down???
+          scope-info (scope/get-scope proof (last sub))
+          scope      (:scope scope-info)
+          duplicates (disj (set (map first (filter #(> (val %) 1) (frequencies (map :body (remove vector? scope)))))) :todo)
+          duplicate-items (filter #(contains? duplicates (:body %)) scope)
+          remain-ids      (map :id (filter :rule duplicate-items))
+          delete-items    (remove :rule (filter #(contains? duplicates (:body %)) sub)); just items from the actual sub can be deleted
+          delete-ids      (map :id delete-items)
+          meta      (reduce #(assoc %1 %2 (last remain-ids)) {} delete-ids)
+          new-proof (with-meta (reduce #(scope/remove-item %1 %2) proof delete-items) (merge meta parent-meta))]
+;      (println (meta proof)); why is the meta-data lost down here???
+      (reduce #(if (vector? %2) (remove-duplicates %1 %2) %1) new-proof sub))))
 
-; TEST
-(defn remove-duplicates1
-  [proof]
-  (let [duplicates (set (for [[body freq] (frequencies (map :body (remove vector? proof)))
-                              :when (> freq 1)]
-                          body))
-        duplicate-items (filter #(contains? duplicates (:body %)) proof)
-        stay-ids     (map :id (filter :rule duplicate-items))
-        delete-items (remove :rule duplicate-items)
-        delete-ids   (map :id delete-items)
-        new-proof (into [] (map #(if (vector? %) (remove-duplicates1 %) %) (remove (set delete-items) proof)))
-        meta (apply merge (map meta (filter vector? new-proof)))]
-    (with-meta new-proof (merge (reduce #(assoc %1 %2 (last stay-ids)) {} delete-ids) meta))))
 
-(defn correct-ids
+(defn adjust-ids
+  "Adjusts the ids used within the :rule of the items.
+Replaces deleted ids with their new target.
+Information is provided by the meta-data created through \"remove-duplicates\"."
   [proof]
   (let [meta  (meta proof)
         regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map key meta)))  
@@ -170,12 +177,13 @@
             node
             (if (string? (:rule node))
               (assoc node :rule (clojure.string/replace (:rule node) regex #(get smap %)))
-              node))) proof)
+              node))) 
+        proof)
       proof)))
     
 
 (defn remove-todos
-  "Removes all todo-lines, if all lines inside the scope are solved (rule =! nil)"
+  "Removes all todo-lines, if all lines inside the (sub)proof are solved (rule =! nil)"
   [proof]
   (let [solved (< (count (remove :rule (remove #(= (:body %) :todo) (remove vector? proof)))) 1)]
     (loop [p proof
@@ -189,60 +197,39 @@
           (recur (subvec p 1) (conj np (first p))))))))
           
 (defn check-duplicates
+  "Removes duplicate lines, adjust leftover ids and remove :todo lines if necessary"
   [proof]
-  (remove-todos (correct-ids (remove-duplicates1 proof))))
+  (remove-todos (adjust-ids (remove-duplicates proof))))
 
 (defn rename-var
+  "Renames a variable"
   [proof old new]
   (check-duplicates
     (clojure.walk/postwalk
       (fn [node]
         (if (map? node)
           (cond
-	          (= (:body node) :todo) node
-	          (symbol? (:body node)) (if (= (:body node) old)
+            (symbol? (:body node)) (if (= (:body node) old)
                                      (assoc node :body new) 
                                      node)
-	          :else (assoc node :body (replace {old new} (:body node)))) 
+            (list? (:body node)) (assoc node :body (clojure.walk/prewalk-replace {old new} (:body node)))
+            :else node)
           node)) 
       proof)))
-          
-    
-; Take a look at postwalk-replace and prewalk-replace
-(defn rename-var1
-  "Renames a certain variable inside the proof"
-  [proof old new]
-  (loop [p proof
-         np []]
-    (cond
-      (empty? p) np
-      (vector? (first p)) (recur (subvec p 1) (conj np (rename-var (first p) old new)))
-      (= (:body (first p)) :todo) (recur (subvec p 1) (conj np (first p)))
-      (symbol? (:body (first p)))
-      (if (= (:body (first p)) old)
-        (recur (subvec p 1) (conj np {:id   (:id (first p))
-                                      :body new 
-                                      :rule (:rule (first p))}))
-        (recur (subvec p 1) (conj np (first p))))
-      :else (recur (subvec p 1) (conj np {:id   (:id (first p))
-                                          :body (replace {old new} (:body (first p)))
-                                          :rule (:rule (first p))})))))
-                                                     
+                    
 (defn init-vars
   [bodies]
   (let [vars (set (filter #(.startsWith (str %) "_") (flatten bodies)))
         smap (reduce #(assoc %1 %2 (new-var)) {} vars)
         new-bodies (map #(if (symbol? %)
-                           (if (contains? vars %)
-                             (get smap %) %)
-                           (replace smap %)) bodies)]
-    (println bodies)
+                           (if (contains? vars %) (get smap %) %)
+                           (clojure.walk/prewalk-replace smap %)) bodies)]
     new-bodies))
 
 (defn create-item
   ([body] (create-item body nil))
   ([body rule]
-	  (if (and (coll? body)
+	  (if (and (list? body)
 	           (contains? #{'infer} (first body)))
      (do 
        (condp = (first body)
@@ -255,9 +242,13 @@
   "Takes a list of line bodies (and a optional rule) and creates items for the proof"
   ([bodies] (create-items bodies nil))
   ([bodies rule]
-    (println bodies rule)
-    (let [newb (init-vars bodies)]
-      (map #(create-item % rule) newb))))
+    (println bodies)
+    (let [newb (init-vars bodies)
+          ; to ensure that all bodies of all items are either symbols or lists, convert all lazy-seq (they come from rule evaluation) to lists
+          non-lazy (map #(if (instance? clojure.lang.LazySeq %) (apply list %) %) newb)]
+      (map #(create-item % rule) non-lazy))))
+
+
 
 
 ; TODO not only check the conclusions but the premises as well
@@ -281,7 +272,7 @@
             conclusions (set (map :body conc-items))
             match-items (filter #(contains? (set items) (:body %)) conc-items)
             rest        (remove #(contains? conclusions %) items)
-            rest-items  (create-items rest (:rule item));(map #(create-item % (:rule item)) rest)
+            rest-items  (create-items rest (:rule item))
             p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
                                                   :body (:body %2)
                                                   :rule (:rule item)}) proof match-items)
@@ -318,7 +309,7 @@
             matches     (filter #(contains? conclusions %) result)
             rest        (remove #(contains? conclusions %) result)
             match-items (filter #(contains? (set matches) (:body %)) conc-items)
-            rest-items  (create-items rest (pr-str rule ids));(map #(create-item % (pr-str rule ids)) rest)
+            rest-items  (create-items rest (pr-str rule ids))
             p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
                                                   :body (:body %2)
                                                   :rule (pr-str rule ids)}) proof match-items)
@@ -346,7 +337,7 @@
             rest      (into [] (remove #(contains? premises %) result))
             match-items (filter #(contains? (set matches) (:body %)) prem-items)
             match-ids   (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) match-items)
-            rest-items  (create-items rest);(map create-item rest)
+            rest-items  (create-items rest)
             rest-ids    (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)
             p1 (reduce #(scope/add-before-item %1 line-item %2) proof rest-items)
             p2 (scope/change-item p1 line-item {:id   (:id line-item)
