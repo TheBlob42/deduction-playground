@@ -1,5 +1,6 @@
 (ns deduction-playground.deduction-test
-  (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]))
+  (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]
+             [deduction-playground.printer :refer [pprint]]))
 
 STOP
 
@@ -259,14 +260,14 @@ STOP
 ; (13) a - d
 ; (11) a - j
 ; (a)
-(def a (proof '[(not (forall [x] (P x)))]
-              '(exists [x] (not (P x)))))
-(-> a
-  (step-b "raa" 3) 
-  (step-b "not-e" 4)
-  (rename-var 'V1 '(forall [x] (P x)))
-  (step-b "forall-i" 4)
-  (step-b "raa" 5))
+(pprint (-> (proof '[(not (forall [x] (P x)))]
+              '(exists [x] (not (P x))))
+          (step-b "raa" 3) 
+          (step-b "not-e" 4)
+          (rename-var 'V1 '(forall [x] (P x)))
+          (step-b "forall-i" 4)
+          (step-b "raa" 5)))
+
   
   
   

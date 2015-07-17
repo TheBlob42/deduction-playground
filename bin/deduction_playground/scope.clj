@@ -83,32 +83,32 @@ x => returns line x
 (defn add-after-line
   [proof after newitem]
   (let [item (get-item-on-line proof after)]
-    (edit-proof proof item newitem :add-after)))
+    (with-meta (edit-proof proof item newitem :add-after) {})))
 
 (defn add-after-item
   [proof after newitem]
-  (edit-proof proof after newitem :add-after))
+  (with-meta (edit-proof proof after newitem :add-after) {}))
 
 (defn add-before-line
   [proof before newitem]
   (let [item (get-item-on-line proof before)]
-    (edit-proof proof before newitem :add-before)))
+    (with-meta (edit-proof proof before newitem :add-before) {})))
 
 (defn add-before-item
   [proof before newitem]
-  (edit-proof proof before newitem :add-before))
+  (with-meta (edit-proof proof before newitem :add-before) {}))
 
 (defn remove-item
   [proof item]
-  (edit-proof proof item nil :remove))
+  (with-meta (edit-proof proof item nil :remove) {}))
 
 (defn change-line
   [proof line newitem]
   (let [item (get-item-on-line proof line)]
-    (edit-proof proof item newitem :change)))
+    (with-meta (edit-proof proof item newitem :change) {})))
 
 (defn change-item
   [proof item newitem]
-  (edit-proof proof item newitem :change))
+  (with-meta (edit-proof proof item newitem :change) {}))
 
 

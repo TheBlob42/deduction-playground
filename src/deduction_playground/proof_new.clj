@@ -161,14 +161,13 @@ The ids of the deleted lines and their replacement will be saved as meta-data in
 ;      (println (meta proof)); why is the meta-data lost down here???
       (reduce #(if (vector? %2) (remove-duplicates %1 %2) %1) new-proof sub))))
 
-
 (defn adjust-ids
   "Adjusts the ids used within the :rule of the items.
 Replaces deleted ids with their new target.
 Information is provided by the meta-data created through \"remove-duplicates\"."
   [proof]
   (let [meta  (meta proof)
-        regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map key meta)))  
+        regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map #(str "\\b" % "\\b") (map key meta)))); \b marks the word boundary to difference 10 from 1|0 etc.
         smap  (apply merge (map #(hash-map (str (key %)) (str (val %))) meta))]
     (if (not-empty meta)
       (clojure.walk/postwalk 
@@ -233,7 +232,7 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
 	           (contains? #{'infer} (first body)))
      (do 
        (condp = (first body)
-         'infer (eval (conj (map #(list `quote %) (rest body)) 'infer))))
+         'infer (eval (conj (map #(list `quote %) (rest body)) `infer))))
      {:id   (new-id)
 	    :body body
 	    :rule rule})))
@@ -242,7 +241,6 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
   "Takes a list of line bodies (and a optional rule) and creates items for the proof"
   ([bodies] (create-items bodies nil))
   ([bodies rule]
-    (println bodies)
     (let [newb (init-vars bodies)
           ; to ensure that all bodies of all items are either symbols or lists, convert all lazy-seq (they come from rule evaluation) to lists
           non-lazy (map #(if (instance? clojure.lang.LazySeq %) (apply list %) %) newb)]

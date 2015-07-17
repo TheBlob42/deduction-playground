@@ -1,43 +1,44 @@
 (ns deduction-playground.printer
-  (:require [deduction-playground.proof :as proof]))
+  (:require [deduction-playground.proof-new :as proof]
+            [clojure.string :as str]
+            [clojure.pprint :as pp]))
 
-(def distance 30)
-(def divider-length 40)
+(def distance 40)
+(def divider-length 25)
 
-; Take a look at "dotimes [] (print "")"
-
-(defn print-proof-line
-  [line depth body rule]
-  (let [sbody (if (= body :todo) "..." (pr-str body))
-        srule (if (nil? rule) "" rule)
-        start (if (> depth 0) 
-                (apply str (concat (take (* (dec depth) 3) (cycle " ")) [" | "]))
-                " ")
-        spaces (apply str (take (- distance (count sbody) (count start)) (cycle " ")))]
-    (println (str line ":" start sbody spaces srule))))
-
-(defn print-divider
-  [depth]
-  (let [start (apply str (take (* depth 3) (cycle " ")))
-        div (apply str (take (- divider-length (* depth 3)) (cycle "-")))]
-    (println (str start div))))
+(defn pprint-line
+  [proof depth item]
+  (let [line (proof/id-to-line proof (:id item))
+        body (str (if (= (:body item) :todo) "..." (:body item)))
+        rule (condp = (:rule item)
+               :premise    "gegeben"
+               :assumption "angenommen"
+               (str/replace (str (:rule item)) #"\b[0-9]+\b" #(str (proof/id-to-line proof (Integer. %)))))]
+    (print (pp/cl-format nil "~3d: " line))
+    (when (pos? depth)
+      (print " ")
+      (dotimes [_ depth] (print "| ")))
+    (print body)
+    (dotimes [_ (- distance (count body) (if (> depth 0) (inc (* 2 depth)) 0))] (print " "))
+    (println rule)))
 
 (defn pprint
-  ([proof] (pprint proof 1 0))
-  ([proof line depth]
-    (print-divider depth)
-    (loop [p proof
-           l line]
-      (cond 
-        (empty? p)
-        (print-divider depth)
-        
-        (map? (first p))
-        (do 
-          (print-proof-line l depth (:body (first p)) (:rule (first p)))
-          (recur (subvec p 1) (inc l)))
-        
-        (vector? (first p))
-        (do
-          (pprint (first p) l (inc depth))
-          (recur (subvec p 1) (+ l (count (flatten (first p))))))))))
+  ([proof] (pprint proof proof 0))
+  ([proof sub depth]
+    (print "     ")
+    (when (pos? depth)
+      (print " ")
+      (dotimes [_ (dec depth)] (print "| ")))
+    (dotimes [_ (- divider-length depth)] (print "--"))
+    (println)
+    (doseq [item sub]
+      (if (vector? item)
+        (pprint proof item (inc depth))
+        (pprint-line proof depth item)))
+    (print "     ") 
+    (when (pos? depth)
+      (print " ")
+      (dotimes [_ (dec depth)] (print "| ")))
+    (dotimes [_ (- divider-length depth)] (print "--"))
+    (println)))
+      
