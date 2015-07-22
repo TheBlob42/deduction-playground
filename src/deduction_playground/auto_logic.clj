@@ -50,6 +50,7 @@
 [and1 (and a b)] -> (== and1 `(~'and ~a ~b))"
   [arg g]
   (cond 
+    (contains? keywords g) `(== ~arg ~(list `quote arg))
     (symbol? g) ()
     (list? g) `(== ~arg ~(gen-term g))
     :else (throw (Exception. "Can't create body-row"))))
@@ -148,20 +149,36 @@
      (eval (list `run* logic-args (conj fn-args fn)))))
  
  ;TODO Copy "permutations" function from combo-namespace (we don't need the rest)
+ 
+;  (defn apply-rule1
+;   "Applies a rule to the given arguments and returns the result(s)"
+;   [name forward? & args]
+;   (let  [r ((keyword name) rules)
+;          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
+;          args-list (map #(conj (list %) `quote) args)
+;          permutations (combo/permutations args-list)
+;          logic-args (into [] (map #(symbol (str %1 %2)) 
+;                                    (take (count (:conclusion rule)) (cycle ['q]))
+;                                    (take (count (:conclusion rule)) (iterate inc 1))))
+;          fn (eval (make-rule rule))
+;          fn-args (concat args-list logic-args)]
+;     (map first (remove empty? (for [x permutations]
+;                                 (eval (list `run* logic-args (conj (concat x logic-args) fn))))))))
+  
   (defn apply-rule1
-   "Applies a rule to the given arguments and returns the result(s)"
-   [name forward? & args]
-   (let  [r ((keyword name) rules)
-          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
+    [name & args]
+    (let [rule ((keyword name) rules)
+          rarg-count (+ (count (:given rule)) (count (:conclusion rule)))
           args-list (map #(conj (list %) `quote) args)
-          permutations (combo/permutations args-list)
-          logic-args (into [] (map #(symbol (str %1 %2)) 
-                                    (take (count (:conclusion rule)) (cycle ['q]))
-                                    (take (count (:conclusion rule)) (iterate inc 1))))
+          logic-args (into [] (map #(symbol (str %1 %2))
+                                   (take (- rarg-count (count args)) (cycle ['q]))
+                                   (take (- rarg-count (count args)) (iterate inc 1))))
           fn (eval (make-rule rule))
-          fn-args (concat args-list logic-args)]
-     (map first (remove empty? (for [x permutations]
-                                 (eval (list `run* logic-args (conj (concat x logic-args) fn))))))))
+          fn-args (concat args-list logic-args)
+          permutations (combo/permutations fn-args)]
+      (map first (remove empty? (for [x permutations]
+                                  (eval (list `run* logic-args (conj x fn))))))))
+          
  
    
  ;HELPER FUNCTIONS

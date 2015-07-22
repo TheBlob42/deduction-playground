@@ -308,7 +308,7 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
         conc-items   (:conclusions info)
         ids (map #(line-to-id proof %) lines)
         rule-args (map #(item-to-rule-arg %) line-items)
-        rule-result (apply log/apply-rule1 (concat [rule true] rule-args))]
+        rule-result (apply log/apply-rule1 (concat [rule] rule-args))]
     (cond
       (empty? rule-result)
       (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
@@ -343,7 +343,7 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
         todo-item (:todo info)
         prem-items (:premises info)
         rule-args (item-to-rule-arg line-item)
-        rule-result (apply log/apply-rule1 (concat [rule false] (list rule-args)))]
+        rule-result (apply log/apply-rule1 (concat [rule] (list rule-args)))]
     (cond
       (empty? rule-result)
       (throw (Exception. "Incorrect parameters for the given rule"))
