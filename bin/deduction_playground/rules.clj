@@ -61,7 +61,8 @@
                       (substitution phi x x0))]
  :conclusion '[(forall [x] phi)]}
 {:name "forall-e"
- :given      '[(forall [x] phi)]
+ :given      '[(forall [x] phi)
+               (actual t)]
  :conclusion '[(substitution phi x t)]}; müsste es "(actual t)" sein?
 
 ; EXISTS

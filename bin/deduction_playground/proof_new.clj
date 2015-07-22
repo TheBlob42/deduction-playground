@@ -113,19 +113,37 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
                :conclusions conclusions}))
     
     (not forward?)
-    (let [line     (first lines)
-          item     (get-item proof line)
-          scope-info (scope/get-scope proof item)
+    (let [lastline  (last (sort-by #(if (vector? %) (first %) %) lines))
+          items     (map #(get-item proof %) lines)
+          scope-info (scope/get-scope proof (get-item proof lastline))
           scope    (:scope scope-info)
           todos    (:todo scope-info)
           premises (:premises scope-info)]
       (cond 
         ; More than one line
-        ; No todos
-        ; More than one todo
         ; Used a line with rule != nil to start from
-        ; Used a todo line to start from
-        :else {:item item
+        (not= (count (remove :rule items)) (log/rule-conclusions rule))
+        (println (str (if (> (count (remove :rule items)) (log/rule-conclusions rule))
+                        "To many "
+                        "Not enough ") "unproofed lines (rule = nil) for this rule. You need exactly " (log/rule-conclusions rule)))
+        
+        (> (count (filter :rule items)) (dec (log/rule-givens rule)))
+        (println "To many optional proofed lines for this rule. You can have at a max " (dec (log/rule-givens rule)))
+        
+        (not-every? #(contains? (set scope) %) items)
+        (println "Not all lines are in the same scope")
+        
+        (< (count todos) 1)
+        (println "There is no :todo line inside your scope to work towards to")
+        
+        (> (count todos) 1)
+        (println "There can't be more than one :todo line")
+        
+        (some #(contains? (set items) %) todos)
+        (println "Can't use empty line for backward steps")
+        
+        :else {:lastline lastline
+               :item items
                :todo (first todos)
                :premises premises}))))
 
@@ -176,7 +194,10 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
   [proof]
   (let [meta  (meta proof)
         regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map #(str "\\b" % "\\b") (map key meta)))); \b marks the word boundary to difference 10 from 1|0 etc.
-        smap  (apply merge (map #(hash-map (str (key %)) (str (val %))) meta))]
+        smap  (apply merge (map #(hash-map (str (key %)) 
+                                           (if (list? (val %))
+                                             (clojure.string/join " " (val %)); swaps one id with a list of others
+                                             (str (val %)))) meta))]
     (if (not-empty meta)
       (clojure.walk/postwalk 
         (fn [node]
@@ -238,7 +259,11 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
   (if (and (list? body)
            (contains? #{'infer 'substitution} (first body)))
     (condp = (first body)
-      'infer        (eval (conj (map #(list `quote (eval-item % rule)) (rest body)) `infer))
+      'infer      (let [prem (if (vector? (second body))
+                               (into [] (map #(eval-item % rule) (second body)))
+                               (eval-item (second body) rule))
+                        conc (eval-item (second (rest body)) rule)]
+                    (eval (conj (map #(list `quote %) (list prem conc)) `infer)))      
       'substitution (eval (conj (map #(list `quote (eval-item % rule)) (rest body)) `substitution)))
     body))
 ; TODO TEST substitution
@@ -295,9 +320,11 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
                                                   :body (:body %2)
                                                   :rule (:rule item)}) proof match-items)
             p2 (reduce #(scope/add-after-item %1 item %2) p1 rest-items)
-            p3 (scope/remove-item p2 item)]
+            p3 (adjust-ids (with-meta p2 {(:id item) (apply list (map :id (concat match-items rest-items)))}))
+            p4 (scope/remove-item p3 item)]
+        (println (meta p3))
         (if (= (count conc-items) (count match-items))
-          (scope/remove-item p3 todo-item) p3)))))
+          (scope/remove-item p4 todo-item) p4)))))
 
 (defn step-f
   [proof rule & lines]
@@ -308,7 +335,7 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
         conc-items   (:conclusions info)
         ids (map #(line-to-id proof %) lines)
         rule-args (map #(item-to-rule-arg %) line-items)
-        rule-result (apply log/apply-rule1 (concat [rule] rule-args))]
+        rule-result (apply log/apply-rule1 (concat [rule true] rule-args))]
     (cond
       (empty? rule-result)
       (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
@@ -339,14 +366,28 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
 (defn step-b
   [proof rule & lines]
   (let [info (check-args proof rule lines false)
-        line-item (:item info)
-        todo-item (:todo info)
+        lastline   (:lastline info)
+        line-items (:item info)
+        todo-item  (:todo info)
         prem-items (:premises info)
-        rule-args (item-to-rule-arg line-item)
-        rule-result (apply log/apply-rule1 (concat [rule] (list rule-args)))]
+        ids (map :id (remove :rule line-items))
+        rule-args (map #(item-to-rule-arg %) line-items)
+        rule-result (apply log/apply-rule1 (concat [rule false] rule-args))]
+    (println rule-args "|" rule-result)
     (cond
       (empty? rule-result)
       (throw (Exception. "Incorrect parameters for the given rule"))
+      
+      (> (count rule-result) 1)
+      (let [id (new-id)
+            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+                                                  :body (:body %2)
+                                                  :rule (pr-str rule (conj (map :id (filter :rule line-items)) id))}) proof (remove :rule line-items))]
+        (scope/add-before-line p1 
+                               lastline 
+                               {:id   id
+                                :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
+                                :rule nil}))
       
       :else
       (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)
@@ -357,12 +398,10 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
             match-ids   (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) match-items)
             rest-items  (create-items rest)
             rest-ids    (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)
-            p1 (reduce #(scope/add-before-item %1 line-item %2) proof rest-items)
-            p2 (scope/change-item p1 line-item {:id   (:id line-item)
-                                                :body (:body line-item)
-                                                :rule (pr-str rule (concat match-ids rest-ids))})]
-        (println rest)
-        (println rest-items)
+            p1 (reduce #(scope/add-before-line %1 lastline %2) proof rest-items)
+            p2 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+                                                  :body (:body %2)
+                                                  :rule (pr-str rule (concat match-ids rest-ids))}) p1 (remove :rule line-items))]
         (if (or (empty? rest) (every? vector? rest-items))
           (scope/remove-item p2 todo-item) p2)))))
  

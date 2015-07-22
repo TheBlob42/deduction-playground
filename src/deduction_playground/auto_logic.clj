@@ -164,10 +164,19 @@
 ;          fn-args (concat args-list logic-args)]
 ;     (map first (remove empty? (for [x permutations]
 ;                                 (eval (list `run* logic-args (conj (concat x logic-args) fn))))))))
+ 
+ (defn rule-givens
+   [name]
+   (count (:given ((keyword name) rules))))
+ 
+ (defn rule-conclusions
+   [name]
+   (count (:conclusion ((keyword name) rules))))
   
   (defn apply-rule1
-    [name & args]
-    (let [rule ((keyword name) rules)
+    [name forward? & args]
+    (let [r ((keyword name) rules)
+          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
           rarg-count (+ (count (:given rule)) (count (:conclusion rule)))
           args-list (map #(conj (list %) `quote) args)
           logic-args (into [] (map #(symbol (str %1 %2))
@@ -175,9 +184,16 @@
                                    (take (- rarg-count (count args)) (iterate inc 1))))
           fn (eval (make-rule rule))
           fn-args (concat args-list logic-args)
-          permutations (combo/permutations fn-args)]
-      (map first (remove empty? (for [x permutations]
-                                  (eval (list `run* logic-args (conj x fn))))))))
+          results (if (or (and forward?
+                               (= (count args) (rule-givens name)))
+                          (and (not forward?)
+                               (= (count args) (rule-conclusions name))))
+                    (for [x (combo/permutations args-list)]
+                      (eval (list `run* logic-args (conj (concat x logic-args) fn))))
+                    (for [x (combo/permutations fn-args)]
+                      (eval (list `run* logic-args (conj x fn)))))]
+      (map first (remove empty? results))))
+                      
           
  
    

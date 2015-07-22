@@ -92,7 +92,7 @@ x => returns line x
 (defn add-before-line
   [proof before newitem]
   (let [item (get-item-on-line proof before)]
-    (with-meta (edit-proof proof before newitem :add-before) {})))
+    (with-meta (edit-proof proof item newitem :add-before) {})))
 
 (defn add-before-item
   [proof before newitem]

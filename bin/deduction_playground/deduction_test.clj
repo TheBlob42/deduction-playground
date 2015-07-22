@@ -26,16 +26,16 @@ STOP
   (step-f "not-e" 2 4))
 
 ; (d)
-(def d (proof '(or p (not p))))
-(-> d
-  (step-b "raa" 2)
-  (step-b "not-e" 3)
-  (rename-var 'V1 '(or p (not p))); die doppelte Zeile wird entfernt, die "id" wird aber nicht angepasst
-  (step-b "or-i2" 3)
-  (step-b "not-i" 3)
-  (step-f "or-i1" 2)
-  (rename-var 'V2 '(not p))
-  (step-f "not-e" 1 3))
+(pprint (-> (proof '(or p (not p)))
+          (step-b "raa" 2)
+          (step-b "not-e" 1 3)
+          (choose-option 3 2)
+          (step-b "or-i2" 3)
+          (step-b "not-i" 3)
+          (step-f "or-i1" 2)
+          (rename-var 'V1 '(not p))
+          (step-f "not-e" 1 3)
+          ))
   
 
 ; (e)
@@ -278,10 +278,12 @@ STOP
                    '(not (forall [x] (P x))))
           (step-b "raa" 3)
           (step-f "notnot-e" 2); does this rule exists or is it a theorem?
-          (step-b "exists-e" 5)
-;          (rename-var 'V1 'x)
-;          (rename-var 'V2 '(not (P x)))
-;          (step-f "forall-e" 3)
+          ; ^ very ugly 
+;          (choose-option 3 1)
+          (step-b "exists-e" 1 5)
+          (rename-var 'V1 'x0)
+          (step-f "forall-e" 3 4)
+          (step-f "not-e" 5 6)
           ))
 
   
