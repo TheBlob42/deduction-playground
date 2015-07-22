@@ -67,7 +67,8 @@
 
 ; EXISTS
 {:name "exists-i"
- :given      '[(substitution phi x t)]
+ :given      '[(actual t)
+               (substitution phi x t)]
  :conclusion '[(exists [x] phi)]};müsste es "(actual t)" sein?
 {:name "exists-e"
  :given      '[(exists [x] phi)

@@ -195,6 +195,32 @@
       (map first (remove empty? results))))
                       
           
+  (defn apply-rule2 
+    "Takes an argument-vector (args) and a vector with optional arguments (optional)
+The obligatory args (args) will always be the first arguments for rule executions (but with different permutations in that position)
+The optional arguments will be mixed with the logic arguments neede for core.logic and will always be the last arguments for rule executions (with permutations)
+
+This way we can ensure that given arguements will never be on positions for conclusion arguments and vise versa"
+    [name forward? args & [optional]]
+    (let [r ((keyword name) rules)
+          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
+          args1 (map #(conj (list %) `quote) args)
+          args2 (map #(conj (list %) `quote) optional)
+          logic-args (into [] (map #(symbol (str %1 %2))
+                                   (take (- (+ (count (:given rule)) 
+                                               (count (:conclusion rule))) (+ (count args1)
+                                                                              (count args2))) (cycle ['q]))
+                                   (take (- (+ (count (:given rule)) 
+                                               (count (:conclusion rule))) (+ (count args1)
+                                                                              (count args2))) (iterate inc 1))))
+          fn (eval (make-rule rule))
+          results (if (empty? optional)
+                    (for [x (combo/permutations args1)]
+                      (eval (list `run* logic-args (conj (concat x logic-args) fn))))
+                    (for [x (combo/permutations args1)
+                          y (combo/permutations (concat args2 logic-args))]
+                      (eval (list `run* logic-args (conj (concat x y) fn)))))]
+      (map first (remove empty? results))))
  
    
  ;HELPER FUNCTIONS
