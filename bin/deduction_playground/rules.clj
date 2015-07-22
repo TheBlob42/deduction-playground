@@ -52,29 +52,34 @@
  :conclusion '[(= t t)]}
 {:name "equal-e"
  :given      '[(= a b)
-               (substitution phi a x)]
- :conclusion '[(substitution phi b x)]}
+               (substitution phi x a)]
+ :conclusion '[(substitution phi x b)]}
           
 ; FORALL 
 {:name "forall-i"
  :given      '[(infer (actual x0)
-                      (substitution phi x0 x))]
+                      (substitution phi x x0))]
  :conclusion '[(forall [x] phi)]}
 {:name "forall-e"
  :given      '[(forall [x] phi)]
- :conclusion '[(substitution phi t x)]}; müsste es "(actual t)" sein?
+ :conclusion '[(substitution phi x t)]}; müsste es "(actual t)" sein?
 
 ; EXISTS
 {:name "exists-i"
- :given      '[(substitution phi t x)]
+ :given      '[(substitution phi x t)]
  :conclusion '[(exists [x] phi)]};müsste es "(actual t)" sein?
 {:name "exists-e"
  :given      '[(exists [x] phi)
                (infer [(actual x0)
-                       (substitution phi x0 x)]
+                       (substitution phi x x0)]
                       X)]
  :conclusion '[X]}
           
+; TEST
+{:name "notnot-e"
+ :given '[(not (not a))]
+ :conclusion '[a]}
+
 ; MULTIPLE CONCLUSIONS TESTING
 {:name "test"
  :given '[(and a b)]

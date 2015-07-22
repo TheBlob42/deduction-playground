@@ -60,6 +60,14 @@
 
 (defn between [x y] [x y])
 
+(defn substitution
+  "Substitute an variable identifier inside a predicate formula with another
+e.g. (substitution '(P x) 'x 'z) => (P z)"
+  [formula old new]
+  (if (contains? (set (flatten formula)) new)
+    (throw (Exception. (str "Substitution failed. The identifier \"" new "\" is already used in the formula \"" formula "\"")))
+    (clojure.walk/postwalk-replace {old new} formula)))
+
 (defn get-item
   [proof line]
   (if (not (vector? line))
@@ -225,17 +233,26 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
                            (clojure.walk/prewalk-replace smap %)) bodies)]
     new-bodies))
 
+(defn eval-item
+  [body rule]
+  (if (and (list? body)
+           (contains? #{'infer 'substitution} (first body)))
+    (condp = (first body)
+      'infer        (eval (conj (map #(list `quote (eval-item % rule)) (rest body)) `infer))
+      'substitution (eval (conj (map #(list `quote (eval-item % rule)) (rest body)) `substitution)))
+    body))
+; TODO TEST substitution
+; TODO inner items have to evaluated too e.g. (infer (substitution (P x) x t) 'c)
 (defn create-item
   ([body] (create-item body nil))
   ([body rule]
-	  (if (and (list? body)
-	           (contains? #{'infer} (first body)))
-     (do 
-       (condp = (first body)
-         'infer (eval (conj (map #(list `quote %) (rest body)) `infer))))
-     {:id   (new-id)
-	    :body body
-	    :rule rule})))
+	  (let [newbody (eval-item body rule)]
+     (if (vector? newbody)
+       newbody
+       {:id   (new-id)
+        :body newbody
+	      :rule rule}))))
+
 
 (defn create-items
   "Takes a list of line bodies (and a optional rule) and creates items for the proof"
@@ -243,7 +260,10 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
   ([bodies rule]
     (let [newb (init-vars bodies)
           ; to ensure that all bodies of all items are either symbols or lists, convert all lazy-seq (they come from rule evaluation) to lists
-          non-lazy (map #(if (instance? clojure.lang.LazySeq %) (apply list %) %) newb)]
+          non-lazy (clojure.walk/postwalk (fn [node]
+                                            (if (instance? clojure.lang.LazySeq node)
+                                              (apply list node)
+                                              node)) newb)]
       (map #(create-item % rule) non-lazy))))
 
 
@@ -341,6 +361,8 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
             p2 (scope/change-item p1 line-item {:id   (:id line-item)
                                                 :body (:body line-item)
                                                 :rule (pr-str rule (concat match-ids rest-ids))})]
+        (println rest)
+        (println rest-items)
         (if (or (empty? rest) (every? vector? rest-items))
           (scope/remove-item p2 todo-item) p2)))))
  

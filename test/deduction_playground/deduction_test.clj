@@ -266,7 +266,23 @@ STOP
           (step-b "not-e" 4)
           (rename-var 'V1 '(forall [x] (P x)))
           (step-b "forall-i" 4)
-          (step-b "raa" 5)))
+          (step-b "raa" 5)
+          (rename-var 'V2 'x0)
+          (step-b "not-e" 6)
+          (rename-var 'V3 '(exists [x] (not (P x))))
+          (step-b "exists-i" 6)
+          (rename-var 'V4 'x0)))
+
+; (b)
+(pprint (-> (proof '(exists [x] (not (P x)))
+                   '(not (forall [x] (P x))))
+          (step-b "raa" 3)
+          (step-f "notnot-e" 2); does this rule exists or is it a theorem?
+          (step-b "exists-e" 5)
+;          (rename-var 'V1 'x)
+;          (rename-var 'V2 '(not (P x)))
+;          (step-f "forall-e" 3)
+          ))
 
   
   

@@ -163,19 +163,6 @@
      (map first (remove empty? (for [x permutations]
                                  (eval (list `run* logic-args (conj (concat x logic-args) fn))))))))
  
- 
-; (defn nreplace
-;   "Nested replace (like core.replace). Replaces also items inside vectors or lists."
-;   [smap coll]
-;   (let [f (fn [m item]
-;             (if (coll? item)
-;               (nreplace m item)
-;               (if-let [e (find m item)] (val e) item)))]
-;   (cond 
-;     (list? coll)
-;     (map #(f smap %) coll)   
-;     (vector? coll)
-;     (into [] (map #(f smap %) coll)))))
    
  ;HELPER FUNCTIONS
  (defn count-rule-args
