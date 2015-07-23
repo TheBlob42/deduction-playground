@@ -52,28 +52,30 @@ STOP
                      (and s t)]
                    '(and q s))
           (step-f "and-e1" 1)
-          (step-f "and-e2" 2)
-          (step-f "and-e1" 4)
-          (step-f "and-i" 3 5)
+          (step-f "and-e2" 3)
+          (step-f "and-e1" 2)
+;          (step-b "and-i" 7))) ; Alternative
+          (step-f "and-i" 4 5)
           (choose-option 6 1)))
 
 ; (b)
 (pprint (-> (proof '(and p q) '(and q p))
           (step-f "and-e1" 1)
           (step-f "and-e2" 1)
+;          (step-b "and-i" 5))) ; Alternative
           (step-f "and-i" 2 3)
-          (choose-option 4 1)))
+          (choose-option 4 2)))
 
 ; (c)
 (pprint (-> (proof '(and (and p q) r) '(and p (and q r)))
           (step-f "and-e1" 1)
           (step-f "and-e2" 1)
-          (step-f "and-e1" 3)
-          (step-f "and-e2" 3)
-          (step-f "and-i" 2 4)
-          (choose-option 5 2)
-          (step-f "and-i" 5 6)
-          (choose-option 7 2)))
+          (step-f "and-e1" 2)
+          (step-f "and-e2" 2)
+          (step-f "and-i" 3 5)
+          (choose-option 6 2)
+          (step-f "and-i" 4 6)
+          (choose-option 7 1)))
 
 ; (d)
 (pprint (-> (proof '[(impl p (impl p q)) p]
@@ -135,9 +137,9 @@ STOP
                    'p)
           (step-f "and-e1" 1)
           (step-f "and-e2" 1)
-          (step-b "or-e" 5 3)
+          (step-b "or-e" 5 2)
           (choose-option 5 1)
-          (step-f "impl-e" 2 4)))
+          (step-f "impl-e" 4 3)))
 
 ; (l)
 (pprint (-> (proof '[(impl p q) (impl r s)]
@@ -145,8 +147,8 @@ STOP
           (step-b "impl-i" 4)
           (step-f "and-e1" 3)
           (step-f "and-e2" 3)
-          (step-f "impl-e" 1 5)
-          (step-f "impl-e" 2 4)
+          (step-f "impl-e" 2 5)
+          (step-f "impl-e" 1 4)
           (step-b "and-i" 9)))
 
 ; (m)
@@ -171,20 +173,20 @@ STOP
 ; (o)
 (pprint (-> (proof '[(or (and p q) (and p r))]
               '(and p (or q r)))
-          (step-b "or-e" 1 3)
+          (step-b "or-e" 3 1)
           (choose-option 3 1)
           (step-f "and-e1" 2)
           (step-f "and-e2" 2)
-          (step-f "or-i2" 3)
+          (step-f "or-i2" 4)
           (rename-var 'V1 'q)
-          (step-f "and-i" 4 5)
-          (choose-option 6 2)
+          (step-f "and-i" 3 5)
+          (choose-option 6 1)
           (step-f "and-e1" 7)
           (step-f "and-e2" 7)
-          (step-f "or-i1" 8)
+          (step-f "or-i1" 9)
           (rename-var 'V2 'r)
-          (step-f "and-i" 9 10)
-          (choose-option 11 2)))
+          (step-f "and-i" 8 10)
+          (choose-option 11 1)))
   
 
 
@@ -228,8 +230,8 @@ STOP
           (step-f "and-e2" 2)
           (step-b "or-e" 1 6)
           (choose-option 6 1)
-          (step-f "not-e" 5 3)
-          (step-f "not-e" 4 7)
+          (step-f "not-e" 5 4)
+          (step-f "not-e" 3 7)
           ))
 
 ; (d)
@@ -293,7 +295,7 @@ STOP
           (step-b "not-i" 4)
           (step-b "not-e" 1 5)
           (choose-option 5 2)
-          (step-b "exists-i" 2 5)
+          (step-b "exists-i" 5 2)
           ))
 
 ; (d)

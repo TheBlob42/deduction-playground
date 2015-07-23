@@ -91,6 +91,10 @@
  :given '[a b]
  :conclusion '[(not a) (or a b)]}
 
+{:name "smulti"
+ :given '[a b c]
+ :conclusion '[(not c) (and a b)]}
+
 {:name "testb"
  :given '[a (not a)]
  :conclusion '[(and a b)]}

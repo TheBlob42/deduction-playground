@@ -2,6 +2,16 @@
   (:require [deduction-playground.auto-logic :as log]
             [deduction-playground.scope :as scope]))
 
+;; atoms to provide unique ids for items and variables
+(def id (atom 0))
+(defn new-id []
+  (swap! id inc))
+
+(def var-id (atom 0))
+(defn new-var []
+  (symbol (str 'V (swap! var-id inc))))
+;; ---------------------------------------------------
+
 ; CHECK DUPLICATES STUFF
 (defn remove-duplicates
   "Checks proof for duplicate lines that are in the same scope and deletes them if possible.
@@ -13,10 +23,13 @@ The ids of the deleted lines and their replacement will be saved as meta-data in
           scope      (:scope scope-info)
           duplicates (disj (set (map first (filter #(> (val %) 1) (frequencies (map :body (remove vector? scope)))))) :todo)
           duplicate-items (filter #(contains? duplicates (:body %)) scope)
-          remain-ids      (map :id (filter :rule duplicate-items))
-          delete-items    (remove :rule (filter #(contains? duplicates (:body %)) sub)); just items from the actual sub can be deleted
-          delete-ids      (map :id delete-items)
-          meta      (reduce #(assoc %1 %2 (last remain-ids)) {} delete-ids)
+          equals (map val (group-by :body duplicate-items))
+          fn-smap (fn [equals]
+                    (let [remain (map :id (filter :rule equals))
+                          delete (map :id (filter (set sub) (remove :rule equals)))]; just items from the actual sub can be deleted
+                      (reduce #(assoc %1 %2 (last remain)) {} delete)))
+          meta (apply merge (map fn-smap equals))
+          delete-items (remove :rule (filter (set duplicate-items) sub))
           new-proof (with-meta (reduce #(scope/remove-item %1 %2) proof delete-items) (merge meta parent-meta))]
 ;      (println (meta proof)); why is the meta-data lost down here???
       (reduce #(if (vector? %2) (remove-duplicates %1 %2) %1) new-proof sub))))
@@ -27,7 +40,8 @@ Replaces deleted ids with their new target.
 Information is provided by the meta-data created through \"remove-duplicates\"."
   [proof]
   (let [meta  (meta proof)
-        regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map #(str "\\b" % "\\b") (map key meta)))); \b marks the word boundary to difference 10 from 1|0 etc.
+        ;; \b marks the word boundary to difference 10 from 1|0 etc.
+        regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map #(str "\\b" % "\\b") (map key meta))))
         smap  (apply merge (map #(hash-map (str (key %)) 
                                            (if (list? (val %))
                                              (clojure.string/join " " (val %)); swaps one id with a list of others
@@ -65,19 +79,11 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
 
 
 
-; Take a look at "postwalk" from clojure.walk
-; replace (filter #(contains? set %) coll) with (filter set coll)
-
-(def id (atom 0))
-(defn new-id []
-  (swap! id inc))
-
-(def var-id (atom 0))
-(defn new-var []
-  (symbol (str 'V (swap! var-id inc))))
-
 (defn infer
-  "Creates a proof of the given premises (optional, vector for multiples) and the formula"
+  "Creates a (sub)proof for premises and formula in the structure needed for further actions.
+\"premises\" can be a single object, a vector of objects or skipped
+\"formula\" needs to be a single object
+\"superproof?\" decides if its a proof or subproof" 
   ([formula] (infer [] formula))
   ([premises formula & [superproof?]]
     (let [desc (if superproof? :premise :assumption)
@@ -90,15 +96,17 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
           form {:id (new-id) :body formula :rule nil}]
       (check-duplicates (conj prem todo form)))))
 
-(defn rev-infer
-  "Creates \"(infer [premises] formula)\" like depiction of the given (sub)proof"
+(defn re-infer
+  "Returns a (sub)proof from the internal strucure back to a depiction like \"(infer [premises] formula)\""
   [proof]
   (let [premises (into [] (map #(:body %) (filter #(or (= (:rule %) :assumption)
-                                                       (= (:rule %) :premise)) proof)))]
-    `(~'infer ~premises ~(:body (last proof)))))
+                                                       (= (:rule %) :premise)) proof)))
+        prem-args (if (> (count premises) 1) premises (first premises))]
+    `(~'infer ~prem-args ~(:body (last proof)))))
 
 (defn proof
-  "Starts a new superproof"
+  "Creates a new superproof
+This is the entry point for new deductions"
   ([formula] (proof [] formula))
   ([premises formula]
     (reset! id 0)
@@ -127,11 +135,17 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
 
 (defn substitution
   "Substitute an variable identifier inside a predicate formula with another
-e.g. (substitution '(P x) 'x 'z) => (P z)"
+e.g. (substitution '(P x) 'x 'Z) => (P Z)"
   [formula old new]
-  (if (contains? (set (flatten formula)) new)
-    (throw (Exception. (str "Substitution failed. The identifier \"" new "\" is already used in the formula \"" formula "\"")))
-    (clojure.walk/postwalk-replace {old new} formula)))
+  (cond
+    (not (list? formula))
+    (throw (Exception. (str "The argument \"" formula "\" is not a list and therefore can't be substituted." 
+                            "Maybe you have to provide optional arguments for the step you trying to accomplish.")))
+    
+    (contains? (set (flatten formula)) new)
+    (throw (Exception. (str "Substitution failed. The identifier \"" new "\" is already used inside the formula \"" formula "\"")))
+    
+    :else (clojure.walk/postwalk-replace {old new} formula)))
 
 (defn get-item
   [proof line]
@@ -145,18 +159,29 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
         (vector? (first p)) (recur (into [] (concat (first p) (subvec p 1))) (inc l))
         :else (recur (subvec p 1) (inc l))))))
 
+(defn get-proofed-items
+  "Only returns items that are either vectors or have a rule (they are prooved)"
+  [items]
+  (filter #(or (vector? %)
+               (:rule %)) items))
+
+(defn get-unproofed-items
+  "Only returns items that are neither vectors nor have a rule (they are unprooved so far)"
+  [items]
+  (remove #(or (vector? %)
+               (:rule %)) items))
+
 (defn check-args
   [proof rule lines forward?]
   (cond
     ; rule exists
-    ; right number of arguments
     ; args distinct?
     ; all lines in range of proof?
     forward?
     (let [lastline    (last (sort-by #(if (vector? %) (first %) %) lines))
           items       (map #(get-item proof %) lines)
-          obligatories (filter :rule items)
-          optional (remove :rule items)
+          obligatories (get-proofed-items items)
+          optional     (get-unproofed-items items)
           scope-info  (scope/get-scope proof (get-item proof lastline))
           scope       (:scope scope-info)
           todos       (:todo scope-info)
@@ -171,6 +196,14 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
         (some #(contains? (set items) %) todos)
         (println "Can't use empty line for forward resulting")
         
+        (not= (count obligatories) (log/rule-givens rule))
+        (println (str (if (> (count obligatories) (log/rule-givens rule))
+                        "Too many "
+                        "Not enough ") "proofed lines (rule != nil) for this rule. You need exactly " (log/rule-givens rule)))
+        
+        (> (count optional) (dec (log/rule-conclusions rule)))
+        (println "Too many optional unproofed lines (rule = nil) for this rule. You can have at a max " (dec (log/rule-conclusions rule)))
+        
 ;        (some #(contains? (set items) %) conclusions)
 ;        (println "Can't use conclusion line for forward resulting")
             
@@ -184,8 +217,8 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
     (not forward?)
     (let [lastline  (last (sort-by #(if (vector? %) (first %) %) lines))
           items     (map #(get-item proof %) lines)
-          optional     (filter :rule items)
-          obligatories (remove :rule items)
+          obligatories (get-unproofed-items items)
+          optional     (get-proofed-items items)
           scope-info (scope/get-scope proof (get-item proof lastline))
           scope    (:scope scope-info)
           todos    (:todo scope-info)
@@ -193,13 +226,13 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
       (cond 
         ; More than one line
         ; Used a line with rule != nil to start from
-        (not= (count (remove :rule items)) (log/rule-conclusions rule))
+        (not= (count obligatories) (log/rule-conclusions rule))
         (println (str (if (> (count (remove :rule items)) (log/rule-conclusions rule))
-                        "To many "
+                        "Too many "
                         "Not enough ") "unproofed lines (rule = nil) for this rule. You need exactly " (log/rule-conclusions rule)))
         
-        (> (count (filter :rule items)) (dec (log/rule-givens rule)))
-        (println "To many optional proofed lines for this rule. You can have at a max " (dec (log/rule-givens rule)))
+        (> (count optional) (dec (log/rule-givens rule)))
+        (println "Too many optional proofed lines for this rule. You can have at a max " (dec (log/rule-givens rule)))
         
         (not-every? #(contains? (set scope) %) items)
         (println "Not all lines are in the same scope")
@@ -224,24 +257,13 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
   [item]
   (if (not (vector? item))
     (:body item)
-    (rev-infer item)))
+    (re-infer item)))
 
-
-;(defn remove-duplicates
-;  "Removes lines with duplicate bodies from the given proof.
-;Moves recursive over all inner vectors, but only removes duplicates within a vector level.
-;The ids of the deleted and remaining items will be saved as meta-data, for further use."
-;  [proof]
-;  (let [duplicates      (set (map first (filter #(> (val %) 1) (frequencies (map :body (remove vector? proof))))))
-;        duplicate-items (filter #(contains? duplicates (:body %)) proof)
-;        remain-ids   (map :id (filter :rule duplicate-items)) ; items with a rule (e.g. :assumption, :premise, "<string>") will remain
-;        delete-items (remove :rule duplicate-items)
-;        delete-ids   (map :id delete-items) ; items without a rule (:rule = nil) will be deleted
-;        new-proof (into [] (map #(if (vector? %) (remove-duplicates %) %) (remove (set delete-items) proof)))
-;        child-meta (apply merge (map meta (filter vector? new-proof)))
-;        meta       (reduce #(assoc %1 %2 (last remain-ids)) {} delete-ids)]
-;    (with-meta new-proof (merge meta child-meta))))
-
+(defn get-item-id
+  [item]
+  (if (not (vector? item))
+    (:id item)
+    [(:id (first item)) (:id (last item))]))
 
 
 (defn rename-var
@@ -299,7 +321,7 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
   ([bodies] (create-items bodies nil))
   ([bodies rule]
     (let [newb (init-vars bodies)
-          ; to ensure that all bodies of all items are either symbols or lists, convert all lazy-seq (they come from rule evaluation) to lists
+          ;; to ensure that all bodies of all items are either symbols or lists, convert all lazy-seq (they come from rule evaluation) to lists
           non-lazy (clojure.walk/postwalk (fn [node]
                                             (if (instance? clojure.lang.LazySeq node)
                                               (apply list node)
@@ -309,163 +331,97 @@ e.g. (substitution '(P x) 'x 'z) => (P z)"
 
 
 
-; TODO not only check the conclusions but the premises as well
 (defn choose-option
-  [proof line option]
+  "Chooses option num on line to be inserted into proof.
+In case there is nothing to choose or the num is invalid, it throws an exception."
+  [proof line num]
   (let [item (get-item proof line)
         options (:body item)
-        opt (get options option)]
+        opt (get options num)]
     (cond 
       (not (map? options))
       (throw (Exception. (str "There is nothing to choose in line " line)))
       
       (nil? opt)
-      (throw (Exception. (str "There is no option \"" option "\" to choose")))
+      (throw (Exception. (str "There is no option \"" num "\" to choose")))
       
       :else
       (let [items (if (vector? opt) opt [opt])
-            scope-info  (scope/get-scope proof item)
-            todo-item   (first (:todo scope-info))
-            match-items (filter #(contains? (set items) (:body %)) (:scope scope-info))
-            rest (remove #(contains? (set (map :body match-items)) %) items)
-            rest-items (create-items rest (:rule item))
-            
-            
-;            conc-items  (:conclusions scope-info)
-;            conclusions (set (map :body conc-items))
-;            match-items (filter #(contains? (set items) (:body %)) conc-items)
-;            rest        (remove #(contains? conclusions %) items)
-;            rest-items  (create-items rest (:rule item))
-            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
-                                                  :body (:body %2)
-                                                  :rule (if (:rule item)
-                                                          (:rule item)
-                                                          (:rule %2))}) proof match-items)
-            p2 (reduce #(scope/add-after-item %1 item %2) p1 rest-items)
-            p3 (adjust-ids (with-meta p2 {(:id item) (apply list (map #(if (vector? %) 
+            new-items (create-items items (:rule item))
+            p1 (reduce #(scope/add-after-item %1 item %2) proof new-items)
+            ;; adjust the ids of the proof to point on the newly created items instead of the old "choose-item" before checking for duplicates
+            p2 (adjust-ids (with-meta p1 {(:id item) (apply list (map #(if (vector? %)
                                                                          [(:id (first %)) (:id (last %))]
-                                                                         (:id %)) (concat match-items rest-items)))}))
-            p4 (scope/remove-item p3 item)]
-        (if (empty? (:conclusions (scope/get-scope p4 todo-item)))
-          (scope/remove-item p4 todo-item) p4)))))
-;        (if (= (count conc-items) (count match-items))
-;          (scope/remove-item p4 todo-item) p4)))))
-
-(defn step-f
-  [proof rule & lines]
-  (let [info         (check-args proof rule lines true)
-        lastline     (:lastline info)
-        line-items   (:items info)
-        todo-item    (:todo info)
-        conc-items   (:conclusions info)
-        
-        obligatory-items (:obligatories info)
-        obligatory-args (into [] (map item-to-rule-arg obligatory-items))
-        obligatory-ids (map :id obligatory-items)
-        optional-items   (:optional info)
-        optional-args (into [] (map item-to-rule-arg optional-items))
-        
-        ids (map #(line-to-id proof %) lines)
-        rule-args (map #(item-to-rule-arg %) line-items)
-        rule-result (apply log/apply-rule2 (conj [rule true] obligatory-args optional-args))]
-;        rule-result (apply log/apply-rule1 (concat [rule true] rule-args))]
-(println obligatory-items)
-    (cond
-      (empty? rule-result)
-      (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
-      
-      ; user has to choose which is the right permutation
-      (> (count rule-result) 1)
-      (scope/add-after-line proof 
-                            lastline 
-                            {:id   (new-id)
-                             :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
-                             :rule (pr-str rule ids)}) 
-      
-      :else
-      (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)
-            conclusions (set (map :body conc-items))
-            matches     (filter #(contains? conclusions %) result)
-            rest        (remove #(contains? conclusions %) result)
-            match-items (filter #(contains? (set matches) (:body %)) conc-items)
-;            rest-items  (create-items rest (pr-str rule ids))
+                                                                         (:id %)) new-items))}))]
+        (check-duplicates (scope/remove-item p2 item))))))
             
-            all-items (create-items result (pr-str rule obligatory-ids))
-            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+(defn step-f
+  "Performs a forward step on proof by applying rule on the lines"
+  [proof rule & lines]
+  (let [info       (check-args proof rule lines true)
+        todo-item        (:todo info)        
+        obligatory-items (:obligatories info)
+        optional-items   (:optional info)
+        obligatory-ids   (map get-item-id obligatory-items)
+        obligatory-args (into [] (map item-to-rule-arg obligatory-items))
+        optional-args   (into [] (map item-to-rule-arg optional-items))        
+        rule-result (apply log/apply-rule2 (conj [rule true] obligatory-args optional-args))]
+    (if (empty? rule-result)
+      (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
+      ;; add the used rule to the optional items
+      (let [p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
                                                   :body (:body %2)
                                                   :rule (pr-str rule obligatory-ids)}) proof optional-items)]
-        (check-duplicates (reduce #(scope/add-after-line %1 lastline %2) p1 all-items)))))) 
-            
-;            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
-;                                                  :body (:body %2)
-;                                                  :rule (pr-str rule ids)}) proof match-items)
-;            p2 (reduce #(scope/add-after-line %1 lastline %2) p1 rest-items)]
-;        (if (= (count conc-items) (count match-items))
-;          (scope/remove-item p2 todo-item) p2)))))
-      
-; TODO backward step with more than one line
+        (if (> (count rule-result) 1)
+          ;; more than one possible result, the user has to decide which one fits his needs
+          (scope/add-before-item p1 
+                                 todo-item
+                                 {:id   (new-id)
+                                  :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
+                                  :rule (pr-str rule obligatory-ids)})
+          ;; only one possible result (which can contain several items to insert)
+          (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)               
+                new-items (create-items result (pr-str rule obligatory-ids))]
+            ;; if there is no empty line, insert everthing behind the last obligatory item
+            (check-duplicates 
+              (if todo-item
+                (reduce #(scope/add-before-item %1 todo-item %2) p1 new-items)
+                (reduce #(scope/add-after-item %1 (last obligatory-items) %2) p1 new-items)))))))))
+
 (defn step-b
+  "Performs a backward step on proof by applying rule on the lines"
   [proof rule & lines]
   (let [info (check-args proof rule lines false)
-        lastline   (:lastline info)
-        line-items (:item info)
-        todo-item  (:todo info)
-        prem-items (:premises info)
-        
-        optional-items (:optional info)
-        optional-args (into [] (map item-to-rule-arg optional-items))
+        todo-item        (:todo info)        
         obligatory-items (:obligatories info)
+        optional-items   (:optional info)
+        optional-ids     (map get-item-id optional-items)
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
-        
-        ids (map :id (remove :rule line-items))
-        rule-args (map #(item-to-rule-arg %) line-items)
+        optional-args   (into [] (map item-to-rule-arg optional-items))
         rule-result (apply log/apply-rule2 (conj [rule false] obligatory-args optional-args ))]
-;        rule-result (apply log/apply-rule1 (concat [rule false] rule-args))]
-    (cond
-      (empty? rule-result)
-      (throw (Exception. "Incorrect parameters for the given rule"))
+     (cond
+       (empty? rule-result)
+       (throw (Exception. "Incorrect parameters for the given rule"))
       
-      (> (count rule-result) 1)
-      (let [id (new-id)
-            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
-                                                  :body (:body %2)
-                                                  :rule (pr-str rule (conj (map :id (filter :rule line-items)) id))}) proof (remove :rule line-items))]
-        (scope/add-after-item p1 
-                              todo-item
-                              {:id   id
-                               :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
-                               :rule nil}))
-      
-      :else
-      (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)
-            premises  (set (map :body prem-items))
-            matches   (filter #(contains? premises %) result)
-            rest      (into [] (remove #(contains? premises %) result))
-            match-items (filter #(contains? (set matches) (:body %)) prem-items)
-            match-ids   (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) match-items)
-;            rest-items  (create-items rest)
-;            rest-ids    (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) rest-items)
+       (> (count rule-result) 1)
+       ;; more than one possible result, the user has to decide which one fits his needs
+       (let [id (new-id)
+             p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+                                                   :body (:body %2)
+                                                   :rule (pr-str rule (conj optional-ids id))}) proof obligatory-items)]
+         (scope/add-after-item p1 
+                               todo-item
+                               {:id   id
+                                :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
+                                :rule nil}))
+       :else
+       ;; only one possible result (which can contain several items to insert)
+       (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)   
+             new-items (create-items result)
+             new-ids   (map get-item-id new-items)
+             p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
+                                                   :body (:body %2)
+                                                   :rule (pr-str rule (concat new-ids optional-ids))}) proof obligatory-items)]
+         (check-duplicates (reduce #(scope/add-after-item %1 todo-item %2) p1 new-items))))))
 
-optional-ids (map :id optional-items)
-
-            all-items (create-items result)
-            all-ids (map #(if (vector? %) 
-                            [(:id (first %)) (:id (last %))]
-                            (:id %)) all-items)
-            p1 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
-                                                  :body (:body %2)
-                                                  :rule (pr-str rule (concat all-ids optional-ids))}) proof (remove :rule line-items))]
-        (check-duplicates (reduce #(scope/add-after-item %1 todo-item %2) p1 all-items))))))
-            
-;            p1 (reduce #(scope/add-after-item %1 todo-item %2) proof rest-items)
-;            p2 (reduce #(scope/change-item %1 %2 {:id   (:id %2)
-;                                                  :body (:body %2)
-;                                                  :rule (pr-str rule (concat match-ids rest-ids))}) p1 (remove :rule line-items))]
-;        (if (or (empty? rest) (every? vector? rest-items))
-;          (scope/remove-item p2 todo-item) p2)))))
- 
-  
-      
-      
-    
     
