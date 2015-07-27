@@ -1,5 +1,5 @@
 (ns deduction-playground.printer
-  (:require [deduction-playground.proof-new :as proof]
+  (:require [deduction-playground.proof :refer [id-to-line]]
             [clojure.string :as str]
             [clojure.pprint :as pp]))
 
@@ -8,12 +8,12 @@
 
 (defn pprint-line
   [proof depth item]
-  (let [line (proof/id-to-line proof (:id item))
+  (let [line (id-to-line proof (:id item))
         body (str (if (= (:body item) :todo) "..." (:body item)))
         rule (condp = (:rule item)
                :premise    "gegeben"
                :assumption "angenommen"
-               (str/replace (str (:rule item)) #"\b[0-9]+\b" #(str (proof/id-to-line proof (Integer. %)))))]
+               (str/replace (str (:rule item)) #"\b[0-9]+\b" #(str (id-to-line proof (Integer. %)))))]
     (print (pp/cl-format nil "~3d: " line))
     (when (pos? depth)
       (print " ")

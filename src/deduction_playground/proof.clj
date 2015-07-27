@@ -1,0 +1,87 @@
+(ns deduction-playground.proof)
+
+(defn get-item
+  "Returns the item from proof on line. 
+line x => returns item on line x
+line [x y] => returns subproof starting on line x (including all contained items and/or subproofs)"
+  [proof line]
+  (if (not (vector? line))
+    (nth (flatten proof) (dec line))
+    (loop [p proof
+           l 1]
+      (cond 
+        (empty? p) nil
+        (= (first line) l) (first p)
+        (vector? (first p)) (recur (into [] (concat (first p) (subvec p 1))) (inc l))
+        :else (recur (subvec p 1) (inc l))))))
+
+(defn line-to-id
+  "Returns the id for the given line"
+  [proof line]
+  (if (not (vector? line))
+    (:id (nth (flatten proof) (dec line)))
+    [(line-to-id proof (first line)) (line-to-id proof (last line))]))
+
+(defn id-to-line
+  "Returns the line, which contains the item, with the given id"
+  [proof id]
+	(if (not (vector? id))
+	  (loop [p (flatten proof)
+	         l 1]
+	    (if (= (:id (first p)) id)
+	      l
+	      (recur (rest p) (inc l))))
+	  [(id-to-line proof (first id)) (id-to-line proof (last id))]))
+
+;; functions for editing the proof
+(defn edit-proof
+  [proof item newitem mode]
+  (let [index (.indexOf proof item)]
+    (if (not= index -1)
+      (condp = mode
+        :add-before (into [] (concat (subvec proof 0 index) [newitem] (subvec proof index)))
+        :add-after (with-meta (into [] (concat (subvec proof 0 (inc index)) [newitem] (subvec proof (inc index)))) {:found? true})
+        :replace (with-meta (into [] (concat (subvec proof 0 index) [newitem] (subvec proof (inc index)))) {:found? true})
+        :remove (with-meta (into [] (concat (subvec proof 0 index) (subvec proof (inc index)))) {:found? true}))
+      (loop [p proof
+             res []]
+        (cond 
+          (empty? p) res
+          (vector? (first p)) 
+          (let [v (edit-proof (first p) item newitem mode)]
+            (if (:found? (meta v))
+              (with-meta (into [] (concat res [v] (subvec p 1))) {:found? true})
+              (recur (subvec p 1) (conj res v))))
+          :else (recur (subvec p 1) (conj res (first p))))))))
+
+(defn add-after-line
+  [proof after newitem]
+  (let [item (get-item proof after)]
+    (with-meta (edit-proof proof item newitem :add-after) {})))
+
+(defn add-after-item
+  [proof after newitem]
+  (with-meta (edit-proof proof after newitem :add-after) {}))
+
+(defn add-before-line
+  [proof before newitem]
+  (let [item (get-item proof before)]
+    (with-meta (edit-proof proof item newitem :add-before) {})))
+
+(defn add-before-item
+  [proof before newitem]
+  (with-meta (edit-proof proof before newitem :add-before) {}))
+
+(defn remove-item
+  [proof item]
+  (with-meta (edit-proof proof item nil :remove) {}))
+
+(defn replace-line
+  [proof line newitem]
+  (let [item (get-item proof line)]
+    (with-meta (edit-proof proof item newitem :replace) {})))
+
+(defn replace-item
+  [proof item newitem]
+  (with-meta (edit-proof proof item newitem :replace) {}))
+;; -------------------------------

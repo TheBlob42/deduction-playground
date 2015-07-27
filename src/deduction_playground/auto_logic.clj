@@ -9,8 +9,6 @@
 
 (def keywords #{'truth 'contradiction})
 
-;TODO
-; - erlaubte operatoren (Terminale)
 
 (defn gen-arg 
   "Turns an input into an argument for the logic function: symbols are passed trough, lists are numbered"
