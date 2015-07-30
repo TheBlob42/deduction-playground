@@ -1,5 +1,5 @@
 (ns deduction-playground.proof)
-
+  
 (defn get-item
   "Returns the item from proof on line. 
 line x => returns item on line x
@@ -32,6 +32,38 @@ line [x y] => returns subproof starting on line x (including all contained items
 	      l
 	      (recur (rest p) (inc l))))
 	  [(id-to-line proof (first id)) (id-to-line proof (last id))]))
+
+(defn get-scope
+  "Returns the scope for an item inside a proof
+e.g. proof = [1 2 [3 4] [5 6 7] 8] & item = 5
+=> scope = [1 2 [3 4] 5 6 7]"
+  [proof item]
+  (if (contains? (set proof) item)
+    proof
+    (loop [p proof
+           scope []]
+      (cond (empty? p) nil
+            (vector? (first p))
+            (if-let [s (get-scope (first p) item)]
+              (into [] (concat scope s))
+              (recur (subvec p 1) (conj scope (first p))))
+            :else (recur (subvec p 1) (conj scope (first p)))))))
+
+(defn proved?
+  "Checks if a proof is fully proved.
+If not throws an Exception with a description which lines are still unproved"
+  [proof]
+  (let [unproved (loop [p proof
+                        u []]
+                   (cond 
+                     (empty? p) u
+                     (and (map? (first p))
+                          (nil? (:rule (first p)))) (recur (subvec p 1) (conj u (first p)))
+                     (vector? (first p)) (recur (into [] (concat (first p) (subvec p 1))) u)
+                     :else (recur (subvec p 1) u)))]
+    (if (not-empty unproved)
+      (throw (Exception. (str "There are still unproved lines inside the proof (" (clojure.string/join " " (map #(id-to-line proof %) (map :id unproved))) ")")))
+      true)))
 
 ;; functions for editing the proof
 (defn edit-proof

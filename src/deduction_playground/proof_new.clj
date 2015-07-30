@@ -1,11 +1,11 @@
 (ns deduction-playground.proof-new
-  (:require [deduction-playground.proof :refer [get-item 
+  (:require [deduction-playground.proof :refer [get-item
+                                                get-scope
                                                 add-after-item 
                                                 add-before-item 
                                                 remove-item 
                                                 replace-item]]
-            [deduction-playground.auto-logic :as log]
-            [deduction-playground.scope :as scope]))
+            [deduction-playground.auto-logic :as log]))
 
 ;; atoms to provide unique ids for items and variables
 (def id (atom 0))
@@ -24,8 +24,7 @@ The ids of the deleted lines and their replacement will be saved as meta-data in
   ([proof] (remove-duplicates proof proof))
   ([proof sub]
     (let [parent-meta (meta proof); why gets the meta-data lost when we move this definition some lines down???
-          scope-info (scope/get-scope proof (last sub))
-          scope      (:scope scope-info)
+          scope (get-scope proof (last sub))
           duplicates (disj (set (map first (filter #(> (val %) 1) (frequencies (map :body (remove vector? scope)))))) :todo)
           duplicate-items (filter #(contains? duplicates (:body %)) scope)
           equals (map val (group-by :body duplicate-items))
@@ -219,7 +218,7 @@ with new unique identifiers (\"V1\", \"V2\" etc.)"
 If nothing is found returns a map with additional information for further proceeding."
   [proof rule lines forward?]
   (cond
-    (not (log/does-rule-exist? rule))
+    (not (log/rule-exist? rule))
     (throw (Exception. (str "A rule named \"" rule "\" does not exists.")))
     
     (not (apply distinct? lines))
@@ -238,9 +237,8 @@ If nothing is found returns a map with additional information for further procee
           optional     (if forward? (get-unproofed-items items) (get-proofed-items items))
           numObligatories (if forward? (log/rule-givens rule) (log/rule-conclusions rule)) 
           numOptionals    (dec (if forward? (log/rule-conclusions rule) (log/rule-givens rule)))
-          scope-info  (scope/get-scope proof (get-item proof lastline))
-          scope       (:scope scope-info)
-          todos       (:todo scope-info)]
+          scope (get-scope proof (get-item proof lastline))
+          todos (filter #(= (:body %) :todo) scope)]
       (cond
         (not-every? #(contains? (set scope) %) items)
         (throw (Exception. "Not all lines are in the same scope"))
@@ -323,7 +321,7 @@ In case there is nothing to choose or the num is invalid, it throws an exception
         obligatory-ids   (map get-item-id obligatory-items)
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
         optional-args   (into [] (map item-to-rule-arg optional-items))        
-        rule-result (apply log/apply-rule2 (conj [rule true] obligatory-args optional-args))]
+        rule-result (apply log/apply-rule (conj [rule true] obligatory-args optional-args))]
     (if (empty? rule-result)
       (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
       ;; add the used rule to the optional items
@@ -356,7 +354,7 @@ In case there is nothing to choose or the num is invalid, it throws an exception
         optional-ids     (map get-item-id optional-items)
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
         optional-args   (into [] (map item-to-rule-arg optional-items))
-        rule-result (apply log/apply-rule2 (conj [rule false] obligatory-args optional-args ))]
+        rule-result (apply log/apply-rule (conj [rule false] obligatory-args optional-args ))]
      (cond
        (empty? rule-result)
        (throw (Exception. "Incorrect parameters for the given rule"))

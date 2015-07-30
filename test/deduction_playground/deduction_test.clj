@@ -4,6 +4,13 @@
 
 STOP
 
+;; Modus Tollens
+(pprint (-> (proof '[(impl a b) (not b)] '(not a))
+          (step-b "not-i" 4)
+          (step-f "impl-e" 1 3)
+          (step-f "not-e" 2 4)
+          ))
+
 ; Aussagenlogik:
 ; (16) a - f
 ; (a)
@@ -35,16 +42,20 @@ STOP
           ))
 
 ; (e)
-(def e (proof '[(impl p q)]
-              '(impl (not q) (not p))))
-(-> e
-  (step-b "impl-i" 3)) ; <- Modus Tollens!
+(pprint (-> (proof '(impl p q)
+                   '(impl (not q) (not p)))
+          (step-b "impl-i" 3)
+          (step-f "modus-tollens" 1 2)
+          ))
 
 ; (f)
-(def f (proof '[(impl p q)
-                (impl (not p) q)] 'q))
-(-> f
-  (step-b "raa" 4)) ; <- Modus Tollens!
+(pprint (-> (proof '[(impl p q)
+                     (impl (not p) q)] 'q)
+          (step-b "raa" 4)
+          (step-f "modus-tollens" 1 3)
+          (step-f "impl-e" 2 4)
+          (step-f "not-e" 3 5)
+          ))
 
 ; (17) a - o
 ; (a)
