@@ -5,7 +5,7 @@
 
 (defn read-rules
   []
-  (with-open [reader (io/reader "src/deduction_playground/rules.clj")]
+  (with-open [reader (io/reader "resources/rules.clj")]
     (loop [item (read (PushbackReader. reader) false nil)
            result {}]
       (if item
@@ -16,13 +16,14 @@
 
 (defn read-theorems
   []
-  (with-open [reader (io/reader "src/deduction_playground/theorems.clj")]
+  (with-open [reader (io/reader "resources/theorems.clj")]
     (loop [item (read (PushbackReader. reader) false nil)
            result {}]
       (if item
         (recur (read (PushbackReader. reader) false nil)
-               (assoc result (keyword (:name item)) {:given (:given item)
-                                                     :conclusion (:conclusion item)}))
+               (assoc result (keyword (:name item)) {:given      (:given item)
+                                                     :conclusion (:conclusion item)
+                                                     :proof      (:proof item)}))
         result))))
 
 (defn export-theorem
