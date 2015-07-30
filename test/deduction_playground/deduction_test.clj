@@ -1,6 +1,6 @@
 (ns deduction-playground.deduction-test
   (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]
-             [deduction-playground.printer :refer [pprint]]))
+            [deduction-playground.printer :refer [pprint]]))
 
 STOP
 

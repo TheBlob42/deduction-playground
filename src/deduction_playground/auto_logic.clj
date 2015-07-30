@@ -1,11 +1,8 @@
 (ns deduction-playground.auto-logic
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:require [deduction-playground.read-rules :refer [read-rules read-theorems]]
+  (:require [deduction-playground.read-rules :refer [rules theorems]]
             [clojure.math.combinatorics :refer [permutations]]))
-
-(def rules (read-rules))
-(def theorems (read-theorems))
 
 ;; those "keywords" will not be handled as symbols but constants
 (def keywords #{'truth 'contradiction})
@@ -128,26 +125,26 @@ e.g. \"and-i\" [a b] => [(and a b)]
     (gen-logic-function (:given rule) (:conclusion rule))
   
     (string? rule)
-    (let [r (or ((keyword rule) rules) ((keyword rule) theorems))]
+    (let [r (or ((keyword rule) @rules) ((keyword rule) @theorems))]
       (gen-logic-function (:given r) (:conclusion r)))
     :else (throw (Exception. (str "The argument you provided is neither a legal rule-map nor the name of a valid rule or theorem (" rule ")")))))
 
 (defn rule-exist?
   "Returns if a certain rule/theorem exists or not"
   [name]
-  (if (or ((keyword name) rules)
-          ((keyword name) theorems)) true false))
+  (if (or ((keyword name) @rules)
+          ((keyword name) @theorems)) true false))
  
 (defn rule-givens
   "Returns the number of givens for the certain rule/theorem"
   [name]
-  (let [rule (or ((keyword name) rules) ((keyword name) theorems))]
+  (let [rule (or ((keyword name) @rules) ((keyword name) @theorems))]
     (count (:given rule))))
  
 (defn rule-conclusions
   "Returns the number of conclusions for the certain rule/theorem"
   [name]
-  (let [rule (or ((keyword name) rules) ((keyword name) theorems))]
+  (let [rule (or ((keyword name) @rules) ((keyword name) @theorems))]
     (count (:conclusion rule))))
 ;; -----------------
                       
@@ -157,7 +154,7 @@ The obligatory arguments (args) will always be the first arguments passed to the
 The optional arguments (optional) will be mixed with the generated logical arguments and will passed last to the core-logic function (in different permutations).
 This way it is ensured that \"given\"-arguments will never handled as \"conclusion\"-arguments and vice versa."
   [name forward? args & [optional]]
-  (let [r (or ((keyword name) rules) ((keyword name) theorems))
+  (let [r (or ((keyword name) @rules) ((keyword name) @theorems))
         rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
         obligatory-args (map #(conj (list %) `quote) args)
         optional-args   (map #(conj (list %) `quote) optional)

@@ -3,20 +3,29 @@
             [deduction-playground.proof :refer [proved?]])
   (:import [java.io PushbackReader]))
 
+(def rules (atom {}))
+(def theorems (atom {}))
+
+(defn reset-rules []
+  (reset! rules {}))
+
+(defn reset-theorems []
+  (reset! theorems {}))
+
 (defn read-rules
-  []
-  (with-open [reader (io/reader "resources/rules.clj")]
+  [filename]
+  (with-open [reader (io/reader filename)]
     (loop [item (read (PushbackReader. reader) false nil)
            result {}]
       (if item
         (recur (read (PushbackReader. reader) false nil)
                (assoc result (keyword (:name item)) {:given (eval (:given item))
                                                      :conclusion (eval (:conclusion item))}))
-        result))))
+        (swap! rules merge result)))))
 
 (defn read-theorems
-  []
-  (with-open [reader (io/reader "resources/theorems.clj")]
+  [filename]
+  (with-open [reader (io/reader filename)]
     (loop [item (read (PushbackReader. reader) false nil)
            result {}]
       (if item
@@ -24,7 +33,10 @@
                (assoc result (keyword (:name item)) {:given      (:given item)
                                                      :conclusion (:conclusion item)
                                                      :proof      (:proof item)}))
-        result))))
+        (swap! theorems merge result)))))
+
+(read-rules "resources/rules.clj")
+(read-theorems "resources/theorems.clj")
 
 (defn export-theorem
   [filename proof name]
