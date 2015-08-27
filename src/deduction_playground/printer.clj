@@ -11,9 +11,12 @@
   (let [line (id-to-line proof (:id item))
         body (str (if (= (:body item) :todo) "..." (:body item)))
         rule (condp = (:rule item)
+               nil         ""
                :premise    "gegeben"
                :assumption "angenommen"
-               (str/replace (str (:rule item)) #"\b[0-9]+\b" #(str (id-to-line proof (Integer. %)))))]
+               ;; split the string into two parts, the name of the rule (in "") and the linked ids (which will be replaced with the respective lines)
+               (str (subs (:rule item) 0 (.lastIndexOf (:rule item) "\"")) ;; important so the rule name can have numbers in it
+                    (str/replace (subs (:rule item) (.lastIndexOf (:rule item) "\"")) #"\b[0-9]+\b" #(str (id-to-line proof (Integer. %))))))]
     (print (pp/cl-format nil "~3d: " line))
     (when (pos? depth)
       (print " ")

@@ -169,9 +169,9 @@ STOP
           (step-b "impl-i" 3)
           (step-b "impl-i" 7)
           (step-f "impl-e" 1 2)
-          (step-f "and-e1" 3)
+          (step-f "and-e2" 3)
           (step-f "impl-e" 1 5)
-          (step-f "and-e2" 6)))
+          (step-f "and-e1" 6)))
   
 
 ; (n)
@@ -225,11 +225,11 @@ STOP
           (step-b "and-i" 4)
           (step-b "raa" 4)
           (step-b "raa" 8)
-          (step-f "or-i1" 3)
-          (rename-var 'V1 '(not q))
+          (step-f "or-i2" 3)
+          (rename-var 'V1 '(not p))
           (step-f "not-e" 2 4)
-          (step-f "or-i2" 6)
-          (rename-var 'V2 '(not p))
+          (step-f "or-i1" 6)
+          (rename-var 'V2 '(not q))
           (step-f "not-e" 2 7)
           ))
 

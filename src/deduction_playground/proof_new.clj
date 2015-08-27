@@ -112,8 +112,15 @@ e.g. (substitution '(P x) 'x 'Z) => (P Z)"
                                           :rule desc) premises))
                  [{:id (new-id) :body premises :rule desc}])
           todo {:id (new-id) :body :todo :rule nil}
-          form {:id (new-id) :body formula :rule nil}]
-      (check-duplicates (conj prem todo form)))))
+          ;; TEST with multiple conclusions
+          forms (if (vector? formula)
+                  (into [] (map #(hash-map :id (new-id)
+                                           :body %
+                                           :rule nil) formula))
+                  [{:id (new-id) :body formula :rule nil}])]
+      (check-duplicates (apply conj (conj prem todo) forms))))) 
+;          form {:id (new-id) :body formula :rule nil}]
+;      (check-duplicates (conj prem todo form)))))
 
 (defn re-infer
   "Returns a (sub)proof from the internal strucure back to a depiction like \"(infer [premises] formula)\""
@@ -221,6 +228,14 @@ If nothing is found returns a map with additional information for further procee
     (not (log/rule-exist? rule))
     (throw (Exception. (str "A rule named \"" rule "\" does not exists.")))
     
+    ;; for forward rules with no premises (e.g. equality introduction)
+    (and (empty? lines)
+         forward? 
+         (zero? (log/rule-givens rule)))
+    {:todo (first (filter #(= (:body %) :todo) (flatten proof)))
+     :obligatories []
+     :optional []}
+    
     (not (apply distinct? lines))
     (throw (Exception. "There are duplicate lines in the arguments"))
     
@@ -310,6 +325,122 @@ In case there is nothing to choose or the num is invalid, it throws an exception
                                                                          [(:id (first %)) (:id (last %))]
                                                                          (:id %)) new-items))}))]
         (check-duplicates (remove-item p2 item))))))
+
+;; TEST forward step, should also regard inner elements
+
+;; maybe rules of the logic you're using have to be prepared to be used inside of a line
+;; e.g. for temporal logik you have to ensure that input and output have the same timestamp (at x) and then remove it for later use
+(defn prep-temporal
+  [rule]
+  (let [given      (first (:given rule))
+        conclusion (first (:conclusion rule))]
+    (if (and (= (first given)      'at)
+             (= (first conclusion) 'at))
+      (if (= (second given) (second conclusion))
+        {:name       (:name rule)
+         :given      [(first (drop 2 given))]
+         :conclusion [(first (drop 2 conclusion))]}
+        (throw (Exception. (str "The rule \"" rule "\" is not usable for an inside step due to the two different time points of the premise and the conclusion"))))
+      rule)))
+
+(defn step-f-inside
+  [proof rule & lines]
+  (cond
+    (> (log/rule-givens rule) 1)
+    (throw (Exception. (str "The rule " rule " needs more than 1 premise. Inside-Steps can only be executed with rules that need exactly 1 premise.")))
+    
+    (> (log/rule-conclusions rule) 1)
+    (throw (Exception. (str "The rule " rule " has more than 1 conclusion. Inside-Steps only work with rules that have exactly 1 conclusion.")))
+    
+    (> (count lines) 1)
+    (throw (Exception. "Too many arguments for an inside usable rule (max. 1)"))
+    
+    :else
+    (let [info (check-args proof rule lines true)
+          r (prep-temporal (log/get-rule rule))
+          rule-exe (fn [node]
+                     (let [res (apply log/apply-rule (conj [r true] [node] []))]
+;                       (println node ":" res)
+                       (if (empty? res)
+                         node
+                         (first res))))
+          item (get-item proof (first lines))
+          body (:body item)
+          new-body (clojure.walk/postwalk rule-exe body)
+          new-item {:id (new-id)
+                    :body new-body
+                    :rule (pr-str rule (list (:id item)))}]
+      (if (= body new-body)
+        (do
+          (println "Inside-step hasn't changed anything")
+          proof)
+        (check-duplicates (add-after-item proof item new-item))))))
+
+
+(defn classical-combine
+  [form]
+  (let [res (log/apply-classicals form)]
+    (if (empty? res)
+      form
+      (first res))))
+
+(defn classical
+  [proof line]
+  (let [item (get-item proof line)
+        body (:body item)
+        new-body (clojure.walk/postwalk
+                   (fn [node] 
+                     (if (list? node)
+                       (classical-combine node)
+                       node))
+                   body)
+        new-id (new-id)]
+    (if (= body new-body)
+      (do (println "\"Classical\" hasn't changed anything.") proof)
+      (if (:rule item)
+        (check-duplicates (add-after-item proof item {:id   new-id
+                                                      :body new-body
+                                                      :rule (str "\"classical\" (" (:id item) ")")}))
+        (if (or (true? new-body)
+                (true? (second (rest new-body))));; for temporal logic (at x true)
+          (check-duplicates (replace-item proof item {:id   (:id item)
+                                                      :body (:body item)
+                                                      :rule (str "\"classical\"")}))
+          (check-duplicates (add-before-item (replace-item proof item {:id   (:id item)
+                                                                       :body (:body item)
+                                                                       :rule (str "\"classical\" (" new-id ")")})
+                                             item
+                                             {:id   new-id
+                                              :body new-body
+                                              :rule nil})))))))
+
+;(defn insert-theorem
+;  [proof theorem]
+;  (let [item (first (remove #(= (:rule %) :premise) proof))
+;        theo (log/get-rule theorem)
+;        new-item {:id (new-id)
+;                  :body (apply list (concat '(impl) (:given theo) (:conclusion theo)))
+;                  :rule (str "\"theorem " theorem "\"")}]
+;  (check-duplicates (add-before-item proof item new-item))))
+;
+;(defn insert-formula
+;  [proof form]
+;  (let [f (if (contains? #{'at 'forall 'exists} (first form))
+;            (first (drop 2 form))
+;            form)
+;        res (clojure.walk/postwalk
+;              classical-combine
+;              f)
+;        item (first (remove #(= (:rule %) :premise) proof))]
+;    (if (true? res)
+;      (check-duplicates (add-before-item proof item {:id (new-id)
+;                                                     :body form
+;                                                     :rule "\"classical theorem\""}))
+;      (throw (Exception. (str "The formula \"" form "\" doesn't convert to \"true\". Therefore it can not be inserted into the proof"))))))
+                                    
+;; TEST END
+
+
             
 (defn step-f
   "Performs a forward step on proof by applying rule on the lines"
@@ -377,7 +508,15 @@ In case there is nothing to choose or the num is invalid, it throws an exception
              new-ids   (map get-item-id new-items)
              p1 (reduce #(replace-item %1 %2 {:id   (:id %2)
                                               :body (:body %2)
-                                              :rule (pr-str rule (concat new-ids optional-ids))}) proof obligatory-items)]
-         (check-duplicates (reduce #(add-after-item %1 todo-item %2) p1 new-items))))))
+                                              :rule (pr-str rule (concat new-ids optional-ids))}) proof obligatory-items)
+             ;; TEST 
+             new-items-1 (filter #(or (vector? %)
+                                      (not (nil? (:rule %)))) new-items)
+             new-items-2 (remove #(or (vector? %)
+                                      (not (nil? (:rule %)))) new-items)
+             p2 (reduce #(add-after-item %1 todo-item %2) p1 new-items-2)]
+         (check-duplicates (reduce #(add-before-item %1 todo-item %2) p2 new-items-1))))))
+;; TEST END
+;         (check-duplicates (reduce #(add-after-item %1 todo-item %2) p1 new-items))))))
 ;; -----------------------------------------------------------------------------
     

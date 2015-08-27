@@ -1,11 +1,11 @@
 (ns deduction-playground.auto-logic
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:require [deduction-playground.read-rules :refer [rules theorems]]
+  (:require [deduction-playground.read-rules :refer [rules theorems classicals]]
             [clojure.math.combinatorics :refer [permutations]]))
 
 ;; those "keywords" will not be handled as symbols but constants
-(def keywords #{'truth 'contradiction})
+(def keywords #{'truth 'contradiction 'true 'false})
 
 ;; functions for generating the core.logic function to represents a certain rule
 (defn gen-arg 
@@ -134,6 +134,14 @@ e.g. \"and-i\" [a b] => [(and a b)]
   [name]
   (if (or ((keyword name) @rules)
           ((keyword name) @theorems)) true false))
+
+(defn get-rule
+  [name]
+  (let [rule ((keyword name) @rules)
+        theorem ((keyword name) @theorems)]
+    (if rule 
+      rule
+      theorem)))
  
 (defn rule-givens
   "Returns the number of givens for the certain rule/theorem"
@@ -153,17 +161,20 @@ e.g. \"and-i\" [a b] => [(and a b)]
 The obligatory arguments (args) will always be the first arguments passed to the core.logic function (in different permutations).
 The optional arguments (optional) will be mixed with the generated logical arguments and will passed last to the core-logic function (in different permutations).
 This way it is ensured that \"given\"-arguments will never handled as \"conclusion\"-arguments and vice versa."
-  [name forward? args & [optional]]
-  (let [r (or ((keyword name) @rules) ((keyword name) @theorems))
-        rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
+  [rule forward? args & [optional]]
+  (let [rmap (cond
+               (map? rule) rule
+               (string? rule) (or ((keyword rule) @rules) ((keyword rule) @theorems))
+            :else (throw (Exception. "Wrong type of argument: \"rule\" has to be a string or a map.")))
+        frule (if forward? rmap (assoc rmap :given (:conclusion rmap) :conclusion (:given rmap)))
         obligatory-args (map #(conj (list %) `quote) args)
         optional-args   (map #(conj (list %) `quote) optional)
-        logic-args-num (- (+ (count (:given rule)) (count (:conclusion rule)))
+        logic-args-num (- (+ (count (:given frule)) (count (:conclusion frule)))
                           (+ (count obligatory-args) (count optional-args)))
         logic-args (into [] (map #(symbol (str %1 %2))
                                  (take logic-args-num (cycle ['q]))
                                  (take logic-args-num (iterate inc 1))))
-        fn (eval (make-rule rule))
+        fn (eval (make-rule frule))
         results (if (empty? optional)
                 (for [x (permutations obligatory-args)]
                   (eval (list `run* logic-args (conj (concat x logic-args) fn))))
@@ -171,6 +182,15 @@ This way it is ensured that \"given\"-arguments will never handled as \"conclusi
                       y (permutations (concat optional-args logic-args))]
                   (eval (list `run* logic-args (conj (concat x y) fn)))))]
     (map first (remove empty? results))))
+
+(defn apply-classicals
+  [form]
+  (let [names (map #(subs % 1) (map str (map key @classicals)))
+        f (fn [name arg]
+            (run* [q] ((eval (make-rule ((keyword name) @classicals))) arg q)))
+        results (map #(f % form) names)
+        res (first (drop-while empty? results))]
+    res))
  
  
  ;; old versions of apply-rule
