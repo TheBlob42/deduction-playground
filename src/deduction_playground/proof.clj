@@ -53,6 +53,8 @@ e.g. proof = [1 2 [3 4] [5 6 7] 8] & item = 5
   "Checks if a proof is fully proved.
 If not throws an Exception with a description which lines are still unproved"
   [proof]
+  (if (empty? proof)
+    (throw (Exception. "The proof is empty/There is no proof")))
   (let [unproved (loop [p proof
                         u []]
                    (cond 
