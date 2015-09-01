@@ -104,14 +104,3 @@
 {:name "linearity"
  :given '[(<= i j) (<= i k)]
  :conclusion '[(or (or (<= j k) (j ~= k)) (<= k j))]}
-
-;{:name "not-i"
-; :given '[(infer (at j c) (at j c)) (at i b) (at i (not b))]
-; :conclusion '[(at j (not c))]}
-;{:name "not-e"
-; :given '[(at i (not (not a)))]
-; :conclusion '[(at i a)]}
-;
-;{:name "impl-i"
-; :given '[(infer (at i c) (at i c)) (at i b)]
-; :conclusion '[(at i (impl c b))]}

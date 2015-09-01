@@ -60,23 +60,13 @@
   (swap! p proof/classical line)
   (show))
 
-;(defn insert-formula
-;  [formula]
-;  (reset! last_step @p)
-;  (swap! p proof/insert-formula formula)
-;  (show))
-;
-;(defn insert-theorem
-;  [theorem]
-;  (reset! last_step @p)
-;  (swap! p proof/insert-theorem theorem)
-;  (show))
 
-;(defn export-theorem
-;  [name]
-;  (read/export-theorem "resources/theorems.clj"
-;                       @p
-;                       name)
+(defn export-theorem
+  [filename name]
+  (read/export-theorem 
+    filename
+    @p
+    name))
 
 (defn undo []
   (if (empty? @last_step)

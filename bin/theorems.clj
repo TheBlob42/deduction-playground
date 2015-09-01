@@ -43,3 +43,4 @@
 {:name "teo-4", :given [], :conclusion [(at x (impl (and true (asap (not a))) (asap (not a))))], :proof [[{:id 3, :body (at x (and true (asap (not a)))), :rule :assumption} {:id 6, :body (at x (asap (not a))), :rule "\"classical\" (3)"}] {:id 2, :body (at x (impl (and true (asap (not a))) (asap (not a)))), :rule "\"impl-i\" ([3 6])"}]}
 {:name "c8-1", :given [], :conclusion [(at x (impl (and a (asap false)) false))], :proof [{:id 2, :body (at x (impl (and a (asap false)) false)), :rule "\"classical\""}]}
 {:name "c8-2", :given [], :conclusion [(at x (impl false false))], :proof [{:id 2, :body (at x (impl false false)), :rule "\"classical\""}]}
+{:name "test1", :given [(at x (and a b))], :conclusion [(at x (and b a))], :proof [{:id 1, :body (at x (and a b)), :rule :premise} {:id 4, :body (at x a), :rule "\"and-e1\" (1)"} {:id 5, :body (at x b), :rule "\"and-e2\" (1)"} {:id 7, :body (at x (and b a)), :rule "\"and-i\" (4 5)"}]}

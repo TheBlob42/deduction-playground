@@ -65,5 +65,5 @@
       (with-open [writer (io/writer filename :append true)]
         (.write writer (str theorem))
         (.newLine writer))
-      (swap! theorems merge theorem))))
+      (swap! theorems merge (hash-map (keyword name) (dissoc theorem :name))))))
 
