@@ -5,7 +5,7 @@
 
 (read/read-rules "resources/rules-temporal.clj")
 (read/read-classicals "resources/classical-theorems.clj")
-(read/read-theorems "resources/theorems.clJ")
+(read/read-theorems "resources/theorems.clj")
 
 STOP
 

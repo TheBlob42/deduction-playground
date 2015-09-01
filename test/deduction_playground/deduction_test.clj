@@ -1,6 +1,11 @@
 (ns deduction-playground.deduction-test
   (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]
+            [deduction-playground.read-rules :as read]
             [deduction-playground.printer :refer [pprint]]))
+
+(read/read-rules "resources/rules.clj")
+(read/read-classicals "resources/classical-theorems.clj")
+(read/read-theorems "resources/theorems.clj")
 
 STOP
 
@@ -8,8 +13,14 @@ STOP
 (pprint (-> (proof '[(impl a b) (not b)] '(not a))
           (step-b "not-i" 4)
           (step-f "impl-e" 1 3)
-          (step-f "not-e" 2 4)
-          ))
+          (step-f "not-e" 2 4)))
+(read/export-theorem
+  (-> (proof '[(impl a b) (not b)] '(not a))
+    (step-b "not-i" 4)
+    (step-f "impl-e" 1 3)
+    (step-f "not-e" 2 4))
+  "resources/theorems.clj"
+  "modus-tollens")
 
 ; Aussagenlogik:
 ; (16) a - f
