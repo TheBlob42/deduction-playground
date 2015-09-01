@@ -16,9 +16,13 @@
 {:name "or-i2"
  :given [(at i b)]
  :conclusion [(at i (or a b))]}
-{:name "or-e"
+{:name "or-e1"
  :given [(at i (or a b)) (at i (not a))]
- :conclusion [(at i b)]} ;; TEST this one
+ :conclusion [(at i b)]}
+;; because of the nested structure of "(at i (or a b))" we need a rule for each side (a, b)
+{:name "or-e2"
+ :given [(at i (or a b)) (at i (not b))]
+ :conclusion [(at i a)]}
 {:name "not-or"
  :given [(at i (not (or a b)))]
  :conclusion [(at i (and (not a) (not b)))]}
@@ -55,9 +59,10 @@
  :given [(<= i j) (at i (always a))]
  :conclusion [(at j a)]}
 
-{:name "generalisation"
- :given [(at x a)]
- :conclusion [(at x (always a))]}
+;; is proofable as theorem
+;{:name "generalisation"
+; :given [(at x a)]
+; :conclusion [(at x (always a))]}
 
 ;; SOMETIMES
 {:name "sometimes-i"
@@ -78,7 +83,6 @@
  :given [(at i (always (impl b c)))
           (at i (always (impl (and a (asap c)) c)))]
  :conclusion [(at i (impl (until a b) c))]}
-; :conclusion [(at i (until a (impl b c)))]}
 {:name "not-until"
  :given [(at i (not (until a b)))]
  :conclusion [(at i (or (always (not b))

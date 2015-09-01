@@ -18,8 +18,8 @@
  :conclusion [(or b a)]}
 {:name "or-e"
  :given      [(or a b)
-               (infer a X)
-               (infer b X)]
+              (infer a X)
+              (infer b X)]
  :conclusion [X]}
 
 ; IMPL
@@ -52,24 +52,24 @@
  :conclusion [(= t t)]}
 {:name "equal-e"
  :given      [(= a b)
-               (substitution phi x a)]
+              (substitution phi x a)]
  :conclusion [(substitution phi x b)]}
           
 ; FORALL 
 {:name "forall-i"
  :given      [(infer (actual x0)
-                      (substitution phi x x0))]
+                     (substitution phi x x0))]
  :conclusion [(forall [x] phi)]}
 {:name "forall-e"
  :given      [(forall [x] phi)
-               (actual t)]
- :conclusion [(substitution phi x t)]}; müsste es "(actual t)" sein?
+              (actual t)]
+ :conclusion [(substitution phi x t)]}
 
 ; EXISTS
 {:name "exists-i"
  :given      [(actual t)
-               (substitution phi x t)]
- :conclusion [(exists [x] phi)]};müsste es "(actual t)" sein?
+              (substitution phi x t)]
+ :conclusion [(exists [x] phi)]}
 {:name "exists-e"
  :given      [(exists [x] phi)
                (infer [(actual x0)
@@ -102,8 +102,8 @@
 {:name "or-e-backwards"
  :given [X]
  :conclusion [(or a b)
-               (infer a X)
-               (infer b X)]}
+              (infer a X)
+              (infer b X)]}
 
 
 
