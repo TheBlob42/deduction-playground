@@ -3,41 +3,50 @@
             [deduction-playground.proof :refer [proved?]])
   (:import [java.io PushbackReader]))
 
+;; storage for rules, theorems and classical-theorems
 (def rules (atom {}))
+(def classicals (atom {}))
 (def theorems (atom {}))
 
-(def classicals (atom {}))
+(defn reset-rules 
+  "Empties the internal storage for rules"
+  [] (reset! rules {}))
 
-(defn reset-rules []
-  (reset! rules {}))
+(defn reset-classicals 
+  "Empties the internal storage for classical-theorems"
+  [] (reset! classicals {}))
 
-(defn reset-theorems []
-  (reset! theorems {}))
+(defn reset-theorems 
+  "Empties the internal storage for theorems"
+  [] (reset! theorems {}))
 
-;; read methods for rules and theorems should be unified (see line 23 and 34)
 (defn read-rules
+  "Imports all rules from filename into the internal rules-storage. Existing rules will be kept."
   [filename]
   (with-open [reader (io/reader filename)]
     (loop [item (read (PushbackReader. reader) false nil)
            result {}]
       (if item
         (recur (read (PushbackReader. reader) false nil)
-               (assoc result (keyword (:name item)) {:given (eval (:given item))
-                                                     :conclusion (eval (:conclusion item))}))
+               (assoc result (keyword (:name item)) {:given      (:given item)
+                                                     :conclusion (:conclusion item)}))
         (swap! rules merge result)))))
 
 (defn read-classicals
+  "Imports all classical-theorems from filename into the internal classical-theorems-storage.
+Existing classical-theorems will be kept."
   [filename]
   (with-open [reader (io/reader filename)]
     (loop [item (read (PushbackReader. reader) false nil)
            result {}]
       (if item
         (recur (read (PushbackReader. reader) false nil)
-               (assoc result (keyword (:name item)) {:given (eval (:given item))
-                                                     :conclusion (eval (:conclusion item))}))
+               (assoc result (keyword (:name item)) {:given      (:given item)
+                                                     :conclusion (:conclusion item)}))
         (swap! classicals merge result)))))
 
 (defn read-theorems
+  "Imports all theorems from filename into the internal theorems-storage. Existing theorems will be kept."
   [filename]
   (with-open [reader (io/reader filename)]
     (loop [item (read (PushbackReader. reader) false nil)
@@ -49,21 +58,20 @@
                                                      :proof      (:proof item)}))
         (swap! theorems merge result)))))
 
-(read-rules "resources/rules.clj")
-(read-theorems "resources/theorems.clj")
-(read-classicals "resources/classical-theorems.clj")
-
 (defn export-theorem
-  [filename proof name]
+  "Exports proof as a theorem with the name to filename"
+  [proof filename name]
   (if (proved? proof)
-    (let [given (into [] (map :body (filter #(= (:rule %) :premise) (flatten proof))))
-          conclusion (vector (:body (last proof)))
-          theorem {:name name
-                   :given given
-                   :conclusion conclusion
-                   :proof proof}]
-      (with-open [writer (io/writer filename :append true)]
-        (.write writer (str theorem))
-        (.newLine writer))
-      (swap! theorems merge (hash-map (keyword name) (dissoc theorem :name))))))
-
+    (if (.exists (io/as-file filename))
+      (let [given (into [] (map :body (filter #(= (:rule %) :premise) (flatten proof))))
+            conclusion (vector (:body (last proof)))
+            theorem {:name name
+                     :given given
+                     :conclusion conclusion
+                     :proof proof}]
+        (with-open [writer (io/writer filename :append true)]
+          (.write writer (str theorem))
+          (.newLine writer))
+        (swap! theorems merge (hash-map (keyword name) (dissoc theorem :name))))
+      (throw (Exception. (str "The System can't find the file \"" filename "\""))))
+    (throw (Exception. "The given proof is not solved yet. You can only export solved proofs as theorems."))))

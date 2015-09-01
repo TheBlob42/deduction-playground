@@ -7,6 +7,7 @@
 (read/read-rules "resources/classical-theorems.clj")
 ;(read/read-rules "resources/rules.clj")
 (read/read-theorems "resources/theorems.clj")
+(read/read-classicals "resources/classical-theorems.clj")
 
 (def last_step (atom []))
 (def p (atom []))
@@ -64,8 +65,8 @@
 (defn export-theorem
   [filename name]
   (read/export-theorem 
-    filename
     @p
+    filename
     name))
 
 (defn undo []
