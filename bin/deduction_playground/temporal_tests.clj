@@ -1,0 +1,378 @@
+(ns deduction-playground.temporal-test
+  (:require [deduction-playground.proof-new :refer [proof step-f step-f-inside step-b classical choose-option rename-var]]
+            [deduction-playground.read-rules :as read]
+            [deduction-playground.printer :refer [pprint]]))
+
+(read/read-rules "resources/rules-temporal.clj")
+(read/read-classicals "resources/classical-theorems.clj")
+(read/read-theorems "resources/theorems.clJ")
+
+STOP
+
+;; generalisation (1)
+(pprint (-> (proof '(at x a)
+                   '(at x (always a)))
+          (step-b "always-i" 3)
+          (rename-var 'V1 'x)))
+
+(read/export-theorem
+  (-> (proof '(at x a)
+             '(at x (always a)))
+    (step-b "always-i" 3)
+    (rename-var 'V1 'x))
+  "resources/theorems.clj"
+  "generalisation")
+
+;; (2)
+(pprint (-> (proof '(at x (impl a b))
+                   '(at x (impl (not b) (not a))))
+          (step-b "impl-i" 3)
+          (step-b "not-i" 4)
+          (rename-var 'V1 'x)
+          (rename-var 'V2 'b)
+          (step-b "and-i" 5)
+          (step-f "impl-e" 1 3)))
+
+(read/export-theorem
+  (-> (proof '(at x (impl a b))
+             '(at x (impl (not b) (not a))))
+    (step-b "impl-i" 3)
+    (step-b "not-i" 4)
+    (rename-var 'V1 'x)
+    (rename-var 'V2 'b)
+    (step-b "and-i" 5)
+    (step-f "impl-e" 1 3))
+  "resources/theorems.clj"
+  "rule-2")
+
+;; (3)
+(pprint (-> (proof '[(at x (impl a b))
+                     (at x (impl b c))]
+                   '(at x (impl a c)))
+          (step-b "impl-i" 4)
+          (step-f "impl-e" 1 3)
+          (step-f "impl-e" 2 4)))
+
+(read/export-theorem
+  (-> (proof '[(at x (impl a b))
+               (at x (impl b c))]
+             '(at x (impl a c)))
+    (step-b "impl-i" 4)
+    (step-f "impl-e" 1 3)
+    (step-f "impl-e" 2 4))
+  "resources/theorems.clj"
+  "rule-3")
+
+;; (4)
+(pprint (-> (proof '(at x (and true a))
+                   '(at x a))
+          (classical 1)))
+
+(pprint (-> (proof '(at x (impl (and true a) a)))
+          (classical 2)))
+(read/export-theorem
+  (-> (proof '(at x (impl (and true a) a)))
+    (classical 2))
+  "resources/theorems.clj"
+  "temporal-4")
+  
+;; (5)
+(pprint (-> (proof '(at x (asap (not a)))
+                   '(at x (not (asap a))))
+          (step-b "not-e" 3)
+          (step-b "not-i" 3)
+          (rename-var 'V1 'y)
+          (rename-var 'V2 'a)
+          (step-f "asap-e" 1)
+          (rename-var 'V3 'y)
+          (step-f "not-e" 3)
+          (step-f "asap-e" 4)
+          (rename-var 'V4 'y)
+          (step-b "and-i" 7)
+          ))
+
+(read/export-theorem
+  (-> (proof '(at x (asap (not a)))
+                   '(at x (not (asap a))))
+          (step-b "not-e" 3)
+          (step-b "not-i" 3)
+          (rename-var 'V1 'y)
+          (rename-var 'V2 'a)
+          (step-f "asap-e" 1)
+          (rename-var 'V3 'y)
+          (step-f "not-e" 3)
+          (step-f "asap-e" 4)
+          (rename-var 'V4 'y)
+          (step-b "and-i" 7))
+  "resources/theorems.clj"
+  "rule-5")
+
+(pprint (-> (proof '(at x (impl (asap (not a)) (not (asap a)))))
+          (step-b "impl-i" 2)
+          (step-b "not-e" 3)
+          (step-b "not-i" 3)
+          (rename-var 'V1 'y)
+          (rename-var 'V2 'a)
+          (step-f "asap-e" 1)
+          (rename-var 'V3 'y)
+          (step-f "not-e" 3)
+          (step-f "asap-e" 4)
+          (rename-var 'V4 'y)
+          (step-b "and-i" 7)
+          ))
+
+(read/export-theorem
+  (-> (proof '(at x (impl (asap (not a)) (not (asap a)))))
+    (step-b "impl-i" 2)
+    (step-b "not-e" 3)
+    (step-b "not-i" 3)
+    (rename-var 'V1 'y)
+    (rename-var 'V2 'a)
+    (step-f "asap-e" 1)
+    (rename-var 'V3 'y)
+    (step-f "not-e" 3)
+    (step-f "asap-e" 4)
+    (rename-var 'V4 'y)
+    (step-b "and-i" 7))
+  "resources/theorems.clj"
+  "temporal-5")
+
+;; (6)
+(pprint (-> (proof '(at x (not (sometimes a)))
+                   '(at x (always (not a))))
+          (step-b "always-i" 3)
+          (rename-var 'V1 'y)
+          (step-b "not-i" 4)
+          (rename-var 'V2 'x)
+          (rename-var 'V3 '(sometimes a))
+          (step-f "sometimes-i" 2 3)
+          (step-f "and-i" 1 4)
+          (choose-option 5 2)
+          ))
+
+(read/export-theorem
+  (-> (proof '(at x (not (sometimes a)))
+             '(at x (always (not a))))
+    (step-b "always-i" 3)
+    (rename-var 'V1 'y)
+    (step-b "not-i" 4)
+    (rename-var 'V2 'x)
+    (rename-var 'V3 '(sometimes a))
+    (step-f "sometimes-i" 2 3)
+    (step-f "and-i" 1 4)
+    (choose-option 5 2))
+  "resources/theorems.clj"
+  "rule-6")
+
+;; (7)
+(pprint (-> (proof '(at x (not (always a)))
+                   '(at x (sometimes (not a))))
+          (step-b "not-e" 3)
+          (step-b "not-i" 3)
+          (rename-var 'V1 'x)
+          (rename-var 'V2 '(always a))
+          (step-f "rule-6" 2)
+          (classical 3)
+          (step-b "and-i" 6)
+          ))
+
+(read/export-theorem
+  (-> (proof '(at x (not (always a)))
+             '(at x (sometimes (not a))))
+    (step-b "not-e" 3)
+    (step-b "not-i" 3)
+    (rename-var 'V1 'x)
+    (rename-var 'V2 '(always a))
+    (step-f "rule-6" 2)
+    (classical 3)
+    (step-b "and-i" 6))
+  "resources/theorems.clj"
+  "rule-7")
+
+;; (8)
+;; PRE
+(pprint (-> (proof '(at x (impl (and a (asap false)) false)))
+          (classical 2)))
+(read/export-theorem
+  (-> (proof '(at x (impl (and a (asap false)) false)))
+    (classical 2))
+  "resources/theorems.clj"
+  "classical-theorem-1")
+
+(pprint (-> (proof '(at x (impl false false)))
+          (classical 2)))
+(read/export-theorem
+  (-> (proof '(at x (impl false false)))
+    (classical 2))
+  "resources/theorems.clj"
+  "classical-theorem-2")
+
+;; MAIN
+(pprint (-> (proof '(at x (impl (until a false) false)))
+          (step-b "until-e" 2)
+          (step-f "classical-theorem-1")
+          (rename-var 'V1 'x)
+          (rename-var 'V2 'a)
+          (step-f "generalisation" 1)
+          (step-f "classical-theorem-2")
+          (rename-var 'V3 'x)
+          (step-f "generalisation" 3)))
+(read/export-theorem
+  (-> (proof '(at x (impl (until a false) false)))
+    (step-b "until-e" 2)
+    (step-f "classical-theorem-1")
+    (rename-var 'V1 'x)
+    (rename-var 'V2 'a)
+    (step-f "generalisation" 1)
+    (step-f "classical-theorem-2")
+    (rename-var 'V3 'x)
+    (step-f "generalisation" 3))
+  "resources/theorems.clj"
+  "temporal-8")
+
+(pprint (-> (proof '(at x (until a false))
+                   '(at x false))
+          (step-b "impl-e" 3)
+          (rename-var 'V1 '(until a false))
+          (step-b "until-e" 3)
+          (step-f "classical-theorem-1")
+          (rename-var 'V2 'x)
+          (rename-var 'V3 'a)
+          (step-f "generalisation" 2)
+          (step-f "classical-theorem-2")
+          (rename-var 'V4 'x)
+          (step-f "generalisation" 4)))
+(read/export-theorem
+  (-> (proof '(at x (until a false))
+             '(at x false))
+    (step-b "impl-e" 3)
+    (rename-var 'V1 '(until a false))
+    (step-b "until-e" 3)
+    (step-f "classical-theorem-1")
+    (rename-var 'V2 'x)
+    (rename-var 'V3 'a)
+    (step-f "generalisation" 2)
+    (step-f "classical-theorem-2")
+    (rename-var 'V4 'x)
+    (step-f "generalisation" 4))
+  "resources/theorems.clj"
+  "rule-8")
+
+;; (9)
+(pprint (-> (proof '(at x (sometimes a))
+                   '(at x (until true a)))
+          (step-f "sometimes-e" 1)
+          (rename-var 'V1 'y)
+          (step-b "not-e" 5)
+          (step-b "not-i" 5)
+          (rename-var 'V2 'y)
+          (rename-var 'V3 'a)
+          (step-b "and-i" 6)
+          (step-f "not-until" 4)
+          (classical 5)
+          (step-f-inside "rule-8" 6)
+          (classical 7)
+          (step-f "always-e" 8 2)))
+
+(read/export-theorem
+  (-> (proof '(at x (sometimes a))
+             '(at x (until true a)))
+    (step-f "sometimes-e" 1)
+    (rename-var 'V1 'y)
+    (step-b "not-e" 5)
+    (step-b "not-i" 5)
+    (rename-var 'V2 'y)
+    (rename-var 'V3 'a)
+    (step-b "and-i" 6)
+    (step-f "not-until" 4)
+    (classical 5)
+    (step-f-inside "rule-8" 6)
+    (classical 7)
+    (step-f "always-e" 8 2))
+  "resources/theorems.clj"
+  "rule-9")
+
+;; (10)
+(pprint (-> (proof '(at x (asap (sometimes a)))
+                   '(at x (sometimes a)))
+          (step-b "sometimes-i" 3)
+          (rename-var 'V1 'z)
+          (step-f "asap-e" 1)
+          (rename-var 'V2 'y)
+          (step-f "sometimes-e" 2)
+          (rename-var 'V3 'z) 
+          (step-f "asap-seriality")
+          (rename-var 'V4 'x)
+          (rename-var 'V5 'y)
+          (step-f "asap/<=" 5)
+          (step-f "transitivity" 3 6)))
+
+(read/export-theorem 
+  (-> (proof '(at x (asap (sometimes a)))
+             '(at x (sometimes a)))
+    (step-b "sometimes-i" 3)
+    (rename-var 'V1 'z)
+    (step-f "asap-e" 1)
+    (rename-var 'V2 'y)
+    (step-f "sometimes-e" 2)
+    (rename-var 'V3 'z) 
+    (step-f "asap-seriality")
+    (rename-var 'V4 'x)
+    (rename-var 'V5 'y)
+    (step-f "asap/<=" 5)
+    (step-f "transitivity" 3 6))
+  "resources/theorems.clj"
+  "rule-10")
+
+;; (11)
+(pprint (-> (proof '(at x (and true (asap (sometimes a))))
+                   '(at x (sometimes a)))
+          (classical 1)
+          (step-f "rule-10" 2)))
+
+;; (13)
+;; PRE
+(pprint (-> (proof '(at x (impl (not a) (not a))))
+          (classical 2)))
+(read/export-theorem 
+  (-> (proof '(at x (impl (not a) (not a))))
+    (classical 2))
+  "resources/theorems.clj"
+  "classical-theorem-3")
+
+(pprint (-> (proof '(at x (and (always (impl a (asap a))) a))
+                   '(at x (always a)))
+          (step-b "not-e" 3)
+          (step-b "not-i" 3)
+          (rename-var 'V1 'x)
+          (rename-var 'V2 'a)
+          (step-b "and-i" 4)
+          (step-f "and-e1" 1)
+          (step-f "and-e2" 1)
+          
+          (step-f "rule-7" 4)
+          (step-f "rule-9" 5)
+          
+          (step-b "impl-e" 8)
+          (rename-var 'V3 '(until true (not a)))
+          (step-b "until-e" 8)
+          (step-f "classical-theorem-3")
+          (rename-var 'V4 'x)
+          (rename-var 'V5 'a)
+          (step-f "generalisation" 7)
+          
+          (step-b "always-i" 10)
+          (rename-var 'V6 'v)
+          (step-f "always-e" 3 9)
+          (step-f "rule-2" 10)
+          (step-f "temporal-5")
+          (rename-var 'V7 'v)
+          (rename-var 'V8 'a)
+          (step-f "rule-3" 12 11)
+          (step-f "temporal-4")
+          (rename-var 'V9 'v)
+          (rename-var 'V10 '(asap (not a)))
+          (step-f "rule-3" 13 14)))
+
+
+
