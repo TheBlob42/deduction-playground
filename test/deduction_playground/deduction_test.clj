@@ -1,5 +1,5 @@
 (ns deduction-playground.deduction-test
-  (:require [deduction-playground.proof-new :refer [proof infer step-f step-b choose-option rename-var]]
+  (:require [deduction-playground.proof-new :refer [proof step-f step-f-inside step-b classical choose-option rename-var]]
             [deduction-playground.read-rules :as read]
             [deduction-playground.printer :refer [pprint]]))
 
@@ -106,11 +106,11 @@ STOP
           (step-f "impl-e" 2 3)))
 
 ; (e)
-(def e (proof '[(impl q (impl p r))
-                (not r) q] 
-              '(not p)))
-(-> e
-  (step-f "impl-e" 1 3)) ; <- Modus Tollens
+(pprint (-> (proof '[(impl q (impl p r))
+                     (not r) q]
+                   '(not p))
+          (step-f "impl-e" 1 3)
+          (step-f "modus-tollens" 2 4)))
 
 ; (f)
 (pprint (-> (proof '(impl (and p q) p))
@@ -264,12 +264,12 @@ STOP
           (step-b "not-i" 7)
           (step-b "not-e" 1 4)
           (choose-option 4 2)
-          (step-f "or-i1" 2)
-          (rename-var 'V1 'q)
+          (step-f "or-i2" 2)
+          (rename-var 'V1 'p)
           (step-b "not-e" 7 1)
           (choose-option 7 2)
-          (step-f "or-i2" 5)
-          (rename-var 'V2 'p)
+          (step-f "or-i1" 5)
+          (rename-var 'V2 'q)
           ))
 
 ; (e)
@@ -346,11 +346,11 @@ STOP
                    '(and (forall [x] (P x)) (forall [x] (Q x))))
           (step-b "and-i" 3)
           (step-b "forall-i" 3)
-          (step-f "forall-e" 1 3)
-          (step-f "and-e2" 4)
-          (step-b "forall-i" 7)
           (step-f "forall-e" 1 2)
-          (step-f "and-e1" 3) 
+          (step-f "and-e2" 3)
+          (step-b "forall-i" 7)
+          (step-f "forall-e" 1 5)
+          (step-f "and-e1" 6) 
           ))
 
 ; (g)
@@ -457,9 +457,24 @@ STOP
           (step-b "exists-i" 6 3)
           ))
 
+(read/export-theorem
+ (-> (proof '(forall [x] (not (P x)))
+             '(not (exists [x] (P x))))
+   (step-b "raa" 3)
+   (classical 2)
+   (step-b "exists-e" 5 3)
+   (step-f "forall-e" 1 4)
+   (step-f "not-e" 6 5))
+ "resources/theorems.clj"
+ "rule-13-b")
+  
 ; (c)
-; kein Modus Tollens
-; kein abspeicher von Theoremen
+(pprint (-> (proof '(exists [x] (P x))
+                   '(not (forall [x] (not (P x)))))
+          (step-b "raa" 3)
+          (classical 2)
+          (step-f "rule-13-b" 3)
+          (step-f "not-e" 1 4)))
 
 ; (d)
 (pprint (-> (proof '(impl S (forall [x] (Q x)))
