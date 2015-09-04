@@ -4,14 +4,15 @@
 (def sign {:const '[c d e]
            :func  '[f 1 g 2]
            :pred  '[P 1 Q 2]})
-; Signature in Elements-Form would be
-;(def sign-e {:c [:const 0]
-;             :d [:const 0]
-;             :e [:const 0]
-;             :f [:func 1]
-;             :g [:func 2]
-;             :P [:pred 1]
-;             :Q [:pred 2]})
+
+;; Signature in Elements-Form would be
+;; (def sign-e {:c [:const 0]
+;;              :d [:const 0]
+;;              :e [:const 0]
+;;              :f [:func 1]
+;;              :g [:func 2]
+;;              :P [:pred 1]
+;;              :Q [:pred 2]})
 
 (defn signature
   "Converts a signature from group-form into elements-form"
