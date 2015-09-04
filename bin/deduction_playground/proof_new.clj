@@ -4,7 +4,8 @@
                                                 add-after-item 
                                                 add-before-item 
                                                 remove-item 
-                                                replace-item]]
+                                                replace-item
+                                                id-to-line]]
             [deduction-playground.auto-logic :as log]))
 
 ;; atoms to provide unique ids for items and variables
@@ -18,39 +19,31 @@
 ;; ---------------------------------------------------
 
 ;; functions for removing duplicate entries from the proof
-(defn remove-duplicates
-  "Checks proof for duplicate lines that are in the same scope and deletes them if possible.
-The ids of the deleted lines and their replacement will be saved as meta-data in the form {deleted-id replacement-id [...]}"
-  ([proof] (remove-duplicates proof proof))
+(defn find-duplicates
+  "Finds duplicates entries inside the proof that can be deleted. Returns a map with the deletable ids as key and the replacement items as value.
+Only items without rule, in the same scope and the same subproof will be markes as deletable"
+  ([proof] (find-duplicates proof proof))
   ([proof sub]
-    (let [parent-meta (meta proof); why gets the meta-data lost when we move this definition some lines down???
-          scope (get-scope proof (last sub))
+    (let [scope (get-scope proof (last sub))
           duplicates (disj (set (map first (filter #(> (val %) 1) (frequencies (map :body (remove vector? scope)))))) :todo)
           duplicate-items (filter #(contains? duplicates (:body %)) scope)
-          equals (map val (group-by :body duplicate-items))
+          equals (into [] (map val (group-by :body duplicate-items)))
           fn-smap (fn [equals]
                     (let [remain (map :id (filter :rule equals))
                           delete (map :id (filter (set sub) (remove :rule equals)))]; just items from the actual sub can be deleted
                       (reduce #(assoc %1 %2 (last remain)) {} delete)))
-          meta (apply merge (map fn-smap equals))
-          delete-items (remove :rule (filter (set duplicate-items) sub))
-          new-proof (with-meta (reduce #(remove-item %1 %2) proof delete-items) (merge meta parent-meta))]
-;      (println (meta proof)); why is the meta-data lost down here???
-      (reduce #(if (vector? %2) (remove-duplicates %1 %2) %1) new-proof sub))))
-
+          ids (apply merge (map fn-smap equals))]
+      (reduce #(if (vector? %2) (merge %1 (find-duplicates proof %2)) %1) ids sub))))
+    
 (defn adjust-ids
-  "Adjusts the ids used within the :rule of the items.
-Replaces deleted ids with their new target.
-Information is provided by the meta-data created through \"remove-duplicates\"."
-  [proof]
-  (let [meta  (meta proof)
-        ;; \b marks the word boundary to difference 10 from 1|0 etc.
-        regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map #(str "\\b" % "\\b") (map key meta))))
-        smap  (apply merge (map #(hash-map (str (key %)) 
-                                           (if (list? (val %))
-                                             (clojure.string/join " " (val %));; swaps one id with a list of others
-                                             (str (val %)))) meta))]
-    (if (not-empty meta)
+  "Replaces all occurences of a certain ID inside proof with another.
+Provide ids as a map with keys = IDs to replace | vals = replacement"
+  [proof ids]
+  (let [regex (java.util.regex.Pattern/compile (clojure.string/join "|" (map #(str "\\b" % "\\b") (map key ids))))
+        smap  (apply merge (map #(hash-map (str (key %)) (if (list? (val %))
+                                                           (clojure.string/join " " (val %))
+                                                           (str (val %)))) ids))]
+    (if (not-empty ids)
       (clojure.walk/postwalk 
         (fn [node]
           (if (vector? node)
@@ -60,6 +53,14 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
               node))) 
         proof)
       proof)))
+
+(defn remove-duplicates
+  "Removes all duplicate entries from proof and adjusting the changed IDs"
+  [proof]
+  (let [duplicates (find-duplicates proof)
+        delete-items (map #(get-item proof (id-to-line proof %)) (map key duplicates))
+        new-proof (reduce #(remove-item %1 %2) proof delete-items)]
+    (adjust-ids new-proof duplicates)))
     
 (defn remove-todos
   "Removes all \"...\" lines, if all lines inside the (sub)proof are solved (rule =! nil)"
@@ -78,7 +79,7 @@ Information is provided by the meta-data created through \"remove-duplicates\"."
 (defn check-duplicates
   "Removes duplicate lines, adjust leftover ids and remove \"...\" lines if possible"
   [proof]
-  (remove-todos (adjust-ids (remove-duplicates proof))))
+  (remove-todos (remove-duplicates proof)))
 ;; -------------------------------------------------------
 
 ;; functions for special forms (e.g. infer, substitution)
@@ -112,15 +113,8 @@ e.g. (substitution '(P x) 'x 'Z) => (P Z)"
                                           :rule desc) premises))
                  [{:id (new-id) :body premises :rule desc}])
           todo {:id (new-id) :body :todo :rule nil}
-          ;; TEST with multiple conclusions
-          forms (if (vector? formula)
-                  (into [] (map #(hash-map :id (new-id)
-                                           :body %
-                                           :rule nil) formula))
-                  [{:id (new-id) :body formula :rule nil}])]
-      (check-duplicates (apply conj (conj prem todo) forms))))) 
-;          form {:id (new-id) :body formula :rule nil}]
-;      (check-duplicates (conj prem todo form)))))
+          form {:id (new-id) :body formula :rule nil}]
+      (check-duplicates (conj prem todo form)))))
 
 (defn re-infer
   "Returns a (sub)proof from the internal strucure back to a depiction like \"(infer [premises] formula)\""
@@ -196,7 +190,9 @@ with new unique identifiers (\"V1\", \"V2\" etc.)"
     body))
 
 (defn create-item
-  "Creates a new item from body and [optional] rule"
+  "Creates a new item from body and [optional] rule
+IMPORTANT: This function is only used by \"create-items\", because this ensures that no lazy-sequences are left inside the new items. 
+If you only want to create one item use --> (first (create-items bodies))"
   ([body] (create-item body nil))
   ([body rule]
 	  (let [newbody (eval-body body)]
@@ -261,7 +257,7 @@ If nothing is found returns a map with additional information for further procee
         (> (count todos) 1)
         (throw (Exception. "There can't be more than one \"...\" line inside your scope"))
         
-        ;; only important for backward steps
+        ;; only backward steps need an empty line to work towards to
         (and (not forward?)
              (< (count todos) 1))
         (throw (Exception. "There is no \"...\" line inside your scope to work towards to"))
@@ -285,9 +281,9 @@ If nothing is found returns a map with additional information for further procee
                :obligatories obligatories 
                :optional optional}))))
 
-;; TODO Check that only variables (e.g. V1 V2) can be renamed
+;; TODO Check that only variables (e.g. V1 V2 x y) can be renamed
 (defn rename-var
-  "Replaces inside the proof all instances of old with new"
+  "Replaces all instances of old inside the proof with new"
   [proof old new]
   (check-duplicates
     (clojure.walk/postwalk
@@ -304,7 +300,7 @@ If nothing is found returns a map with additional information for further procee
 
 (defn choose-option
   "Chooses option num on line to be inserted into proof.
-In case there is nothing to choose or the num is invalid, it throws an exception."
+In case there is nothing to choose or the num is invalid, throws an exception."
   [proof line num]
   (let [item (get-item proof line)
         options (:body item)
@@ -321,12 +317,9 @@ In case there is nothing to choose or the num is invalid, it throws an exception
             new-items (create-items items (:rule item))
             p1 (reduce #(add-after-item %1 item %2) proof new-items)
             ;; adjust the ids of the proof to point on the newly created items instead of the old "choose-item" before checking for duplicates
-            p2 (adjust-ids (with-meta p1 {(:id item) (apply list (map #(if (vector? %)
-                                                                         [(:id (first %)) (:id (last %))]
-                                                                         (:id %)) new-items))}))]
+            p2 (adjust-ids p1 {(:id item) (apply list (map #(if (vector? %) [(:id (first %)) (:id (last %))] (:id %)) new-items))})]
+        
         (check-duplicates (remove-item p2 item))))))
-
-;; TEST forward step, should also regard inner elements
 
 ;; maybe rules of the logic you're using have to be prepared to be used inside of a line
 ;; e.g. for temporal logik you have to ensure that input and output have the same timestamp (at x) and then remove it for later use
@@ -344,7 +337,7 @@ In case there is nothing to choose or the num is invalid, it throws an exception
       rule)))
 
 (defn step-f-inside
-  [proof rule & lines]
+  [proof rule line]
   (cond
     (> (log/rule-givens rule) 1)
     (throw (Exception. (str "The rule " rule " needs more than 1 premise. Inside-Steps can only be executed with rules that need exactly 1 premise.")))
@@ -352,19 +345,15 @@ In case there is nothing to choose or the num is invalid, it throws an exception
     (> (log/rule-conclusions rule) 1)
     (throw (Exception. (str "The rule " rule " has more than 1 conclusion. Inside-Steps only work with rules that have exactly 1 conclusion.")))
     
-    (> (count lines) 1)
-    (throw (Exception. "Too many arguments for an inside usable rule (max. 1)"))
-    
     :else
-    (let [info (check-args proof rule lines true)
+    (let [info (check-args proof rule [line] true)
           r (prep-temporal (log/get-rule rule))
           rule-exe (fn [node]
                      (let [res (apply log/apply-rule (conj [r true] [node] []))]
-;                       (println node ":" res)
                        (if (empty? res)
                          node
                          (first res))))
-          item (get-item proof (first lines))
+          item (get-item proof line)
           body (:body item)
           new-body (clojure.walk/postwalk rule-exe body)
           new-item {:id (new-id)
@@ -376,14 +365,6 @@ In case there is nothing to choose or the num is invalid, it throws an exception
           proof)
         (check-duplicates (add-after-item proof item new-item))))))
 
-
-(defn classical-combine
-  [form]
-  (let [res (log/apply-classicals form)]
-    (if (empty? res)
-      form
-      (first res))))
-
 (defn classical
   [proof line]
   (let [item (get-item proof line)
@@ -391,55 +372,28 @@ In case there is nothing to choose or the num is invalid, it throws an exception
         new-body (clojure.walk/postwalk
                    (fn [node] 
                      (if (list? node)
-                       (classical-combine node)
+                       (let [res (log/apply-classicals node)]
+                         (if (empty? res) node (first res)))
                        node))
                    body)
-        new-id (new-id)]
+        new-item (first (create-items [new-body]))]
     (if (= body new-body)
       (do (println "\"Classical\" hasn't changed anything.") proof)
       (if (:rule item)
-        (check-duplicates (add-after-item proof item {:id   new-id
-                                                      :body new-body
-                                                      :rule (str "\"classical\" (" (:id item) ")")}))
+        (check-duplicates (add-after-item proof item (assoc new-item :rule (str "\"classical\" (" (:id item) ")")))) 
         (if (or (true? new-body)
-                (true? (second (rest new-body))));; for temporal logic (at x true)
+                ;; for temporal logic "(at x true)"
+                (and (list? new-body) 
+                     (= (first new-body) 'at)
+                     (true? (second (rest new-body)))))
           (check-duplicates (replace-item proof item {:id   (:id item)
                                                       :body (:body item)
                                                       :rule (str "\"classical\"")}))
-          (check-duplicates (add-before-item (replace-item proof item {:id   (:id item)
-                                                                       :body (:body item)
-                                                                       :rule (str "\"classical\" (" new-id ")")})
-                                             item
-                                             {:id   new-id
-                                              :body new-body
-                                              :rule nil})))))))
-
-;(defn insert-theorem
-;  [proof theorem]
-;  (let [item (first (remove #(= (:rule %) :premise) proof))
-;        theo (log/get-rule theorem)
-;        new-item {:id (new-id)
-;                  :body (apply list (concat '(impl) (:given theo) (:conclusion theo)))
-;                  :rule (str "\"theorem " theorem "\"")}]
-;  (check-duplicates (add-before-item proof item new-item))))
-;
-;(defn insert-formula
-;  [proof form]
-;  (let [f (if (contains? #{'at 'forall 'exists} (first form))
-;            (first (drop 2 form))
-;            form)
-;        res (clojure.walk/postwalk
-;              classical-combine
-;              f)
-;        item (first (remove #(= (:rule %) :premise) proof))]
-;    (if (true? res)
-;      (check-duplicates (add-before-item proof item {:id (new-id)
-;                                                     :body form
-;                                                     :rule "\"classical theorem\""}))
-;      (throw (Exception. (str "The formula \"" form "\" doesn't convert to \"true\". Therefore it can not be inserted into the proof"))))))
-                                    
-;; TEST END
-
+          (check-duplicates (replace-item (add-before-item proof item new-item) 
+                                          item 
+                                          {:id   (:id item)
+                                           :body (:body item)
+                                           :rule (str "\"classical\" (" (:id new-item) ")")})))))))
 
             
 (defn step-f
@@ -509,14 +463,12 @@ In case there is nothing to choose or the num is invalid, it throws an exception
              p1 (reduce #(replace-item %1 %2 {:id   (:id %2)
                                               :body (:body %2)
                                               :rule (pr-str rule (concat new-ids optional-ids))}) proof obligatory-items)
-             ;; TEST 
-             new-items-1 (filter #(or (vector? %)
+             ;; add proved items (e.g. subproofs) before the "..."-item and unproved items after it
+             proved-items   (filter #(or (vector? %)
+                                         (not (nil? (:rule %)))) new-items)
+             unproved-items (remove #(or (vector? %)
                                       (not (nil? (:rule %)))) new-items)
-             new-items-2 (remove #(or (vector? %)
-                                      (not (nil? (:rule %)))) new-items)
-             p2 (reduce #(add-after-item %1 todo-item %2) p1 new-items-2)]
-         (check-duplicates (reduce #(add-before-item %1 todo-item %2) p2 new-items-1))))))
-;; TEST END
-;         (check-duplicates (reduce #(add-after-item %1 todo-item %2) p1 new-items))))))
-;; -----------------------------------------------------------------------------
-    
+             p2 (reduce #(add-after-item %1 todo-item %2) p1 unproved-items)]
+         (check-duplicates (reduce #(add-before-item %1 todo-item %2) p2 proved-items))))))
+
+
