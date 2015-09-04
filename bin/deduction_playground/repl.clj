@@ -1,5 +1,5 @@
 (ns deduction-playground.repl
-  (:require [deduction-playground.proof-new :as proof]
+  (:require [deduction-playground.deduction :as deduc]
             [deduction-playground.io :as io]
             [deduction-playground.printer :refer [pprint]]))
 
@@ -23,49 +23,49 @@
   ([formula] (proof [] formula))
   ([premises formula]
     (reset! last_step [])
-    (reset! p (proof/proof premises formula))
+    (reset! p (deduc/proof premises formula))
     (show)))
 
 (defn step-f
   "Execute a forward step"
   [rule & lines]
   (reset! last_step @p)
-  (swap! p #(apply proof/step-f (conj (conj lines rule) %)))
+  (swap! p #(apply deduc/step-f (conj (conj lines rule) %)))
   (show))
 
 (defn step-f-inside
   "Executs a forward step inside the chosen line"
   [rule line]
   (reset! last_step @p)
-  (swap! p #(apply proof/step-f-inside (conj line rule %)))
+  (swap! p #(apply deduc/step-f-inside (conj line rule %)))
   (show))
 
 (defn step-b
   "Execute a backward step"
   [rule & lines]
   (reset! last_step @p)
-  (swap! p #(apply proof/step-b (conj (conj lines rule) %)))
+  (swap! p #(apply deduc/step-b (conj (conj lines rule) %)))
   (show))
 
 (defn choose-option
   "Choose an option in the chosen line"
   [line num]
   (reset! last_step @p)
-  (swap! p proof/choose-option line num)
+  (swap! p deduc/choose-option line num)
   (show))
 
 (defn rename-var
   "Rename a variable"
   [old new]
   (reset! last_step @p)
-  (swap! p proof/rename-var old new)
+  (swap! p deduc/rename-var old new)
   (show))
 
 (defn classical
   "Apply the classical-theorems inside the chosen line"
   [line]
   (reset! last_step @p)
-  (swap! p proof/classical line)
+  (swap! p deduc/classical line)
   (show))
 
 (defn export-theorem

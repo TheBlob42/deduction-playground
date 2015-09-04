@@ -1,4 +1,4 @@
-(ns deduction-playground.proof-new
+(ns deduction-playground.deduction
   (:require [deduction-playground.proof :refer [get-item get-scope add-after-item add-before-item 
                                                 remove-item replace-item id-to-line]]
             [deduction-playground.rules :as rules]))
