@@ -3,7 +3,7 @@
             [deduction-playground.read-rules :as read]
             [deduction-playground.printer :refer [pprint]]))
 
-(read/read-rules "resources/rules.clj")
+(read/read-rules "resources/rules-prop-prep.clj")
 (read/read-classicals "resources/classical-theorems.clj")
 (read/read-theorems "resources/theorems.clj")
 
