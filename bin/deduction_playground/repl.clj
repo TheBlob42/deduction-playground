@@ -1,12 +1,12 @@
 (ns deduction-playground.repl
   (:require [deduction-playground.proof-new :as proof]
-            [deduction-playground.read-rules :as read]
+            [deduction-playground.io :as io]
             [deduction-playground.printer :refer [pprint]]))
 
-;(read/read-rules "resources/rules.clj")
-(read/read-rules "resources/rules-temporal.clj")
-(read/read-classicals "resources/classical-theorems.clj")
-(read/read-theorems "resources/theorems.clj")
+(io/import-rules "resources/rules.clj")
+;(io/import-rules "resources/rules-temporal.clj")
+(io/import-classicals "resources/classical-theorems.clj")
+(io/import-theorems "resources/theorems.clj")
 
 ;; holds the actual state of the proof 
 (def p (atom []))
@@ -48,7 +48,7 @@
   (show))
 
 (defn choose-option
-  "Chose an option in the chosen line"
+  "Choose an option in the chosen line"
   [line num]
   (reset! last_step @p)
   (swap! p proof/choose-option line num)
@@ -71,7 +71,7 @@
 (defn export-theorem
   "Export the solved proof to a file as a theorem"
   [filename name]
-  (read/export-theorem 
+  (io/export-theorem 
     @p
     filename
     name))

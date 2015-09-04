@@ -1,5 +1,6 @@
 (ns deduction-playground.proof)
-  
+ 
+;; utility functions
 (defn get-item
   "Returns the item from proof on line. 
 line x => returns item on line x
@@ -66,6 +67,7 @@ If not throws an Exception with a description which lines are still unproved"
     (if (not-empty unproved)
       (throw (Exception. (str "There are still unproved lines inside the proof (" (clojure.string/join " " (map #(id-to-line proof %) (map :id unproved))) ")")))
       true)))
+;; -----------------
 
 ;; functions for editing the proof
 (defn edit-proof
@@ -73,14 +75,14 @@ If not throws an Exception with a description which lines are still unproved"
   (let [index (.indexOf proof item)]
     (if (not= index -1)
       (condp = mode
-        :add-before (into [] (concat (subvec proof 0 index) [newitem] (subvec proof index)))
-        :add-after (with-meta (into [] (concat (subvec proof 0 (inc index)) [newitem] (subvec proof (inc index)))) {:found? true})
-        :replace (with-meta (into [] (concat (subvec proof 0 index) [newitem] (subvec proof (inc index)))) {:found? true})
-        :remove (with-meta (into [] (concat (subvec proof 0 index) (subvec proof (inc index)))) {:found? true}))
+        :add-before (with-meta (into [] (concat (subvec proof 0 index) [newitem] (subvec proof index))) {:found? true})
+        :add-after  (with-meta (into [] (concat (subvec proof 0 (inc index)) [newitem] (subvec proof (inc index)))) {:found? true})
+        :replace    (with-meta (into [] (concat (subvec proof 0 index) [newitem] (subvec proof (inc index)))) {:found? true})
+        :remove     (with-meta (into [] (concat (subvec proof 0 index) (subvec proof (inc index)))) {:found? true}))
       (loop [p proof
              res []]
         (cond 
-          (empty? p) res
+          (empty? p) (with-meta res {})
           (vector? (first p)) 
           (let [v (edit-proof (first p) item newitem mode)]
             (if (:found? (meta v))
@@ -91,31 +93,31 @@ If not throws an Exception with a description which lines are still unproved"
 (defn add-after-line
   [proof after newitem]
   (let [item (get-item proof after)]
-    (with-meta (edit-proof proof item newitem :add-after) {})))
+     edit-proof proof item newitem :add-after)) 
 
 (defn add-after-item
   [proof after newitem]
-  (with-meta (edit-proof proof after newitem :add-after) {}))
+  (edit-proof proof after newitem :add-after))
 
 (defn add-before-line
   [proof before newitem]
   (let [item (get-item proof before)]
-    (with-meta (edit-proof proof item newitem :add-before) {})))
+    (edit-proof proof item newitem :add-before)))
 
 (defn add-before-item
   [proof before newitem]
-  (with-meta (edit-proof proof before newitem :add-before) {}))
+  (edit-proof proof before newitem :add-before))
 
 (defn remove-item
   [proof item]
-  (with-meta (edit-proof proof item nil :remove) {}))
+  (edit-proof proof item nil :remove))
 
 (defn replace-line
   [proof line newitem]
   (let [item (get-item proof line)]
-    (with-meta (edit-proof proof item newitem :replace) {})))
+    (edit-proof proof item newitem :replace)))
 
 (defn replace-item
   [proof item newitem]
-  (with-meta (edit-proof proof item newitem :replace) {}))
+  (edit-proof proof item newitem :replace))
 ;; -------------------------------

@@ -1,4 +1,4 @@
-(ns deduction-playground.read-rules
+(ns deduction-playground.io
   (:require [clojure.java.io :as io]
             [deduction-playground.proof :refer [proved?]])
   (:import [java.io PushbackReader]))
@@ -20,7 +20,7 @@
   "Empties the internal storage for theorems"
   [] (reset! theorems {}))
 
-(defn read-rules
+(defn import-rules
   "Imports all rules from filename into the internal rules-storage. Existing rules will be kept."
   [filename]
   (with-open [reader (io/reader filename)]
@@ -32,7 +32,7 @@
                                                      :conclusion (:conclusion item)}))
         (swap! rules merge result)))))
 
-(defn read-classicals
+(defn import-classicals
   "Imports all classical-theorems from filename into the internal classical-theorems-storage.
 Existing classical-theorems will be kept."
   [filename]
@@ -45,7 +45,7 @@ Existing classical-theorems will be kept."
                                                      :conclusion (:conclusion item)}))
         (swap! classicals merge result)))))
 
-(defn read-theorems
+(defn import-theorems
   "Imports all theorems from filename into the internal theorems-storage. Existing theorems will be kept."
   [filename]
   (with-open [reader (io/reader filename)]

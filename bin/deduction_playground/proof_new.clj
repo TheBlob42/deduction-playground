@@ -1,12 +1,7 @@
 (ns deduction-playground.proof-new
-  (:require [deduction-playground.proof :refer [get-item
-                                                get-scope
-                                                add-after-item 
-                                                add-before-item 
-                                                remove-item 
-                                                replace-item
-                                                id-to-line]]
-            [deduction-playground.auto-logic :as log]))
+  (:require [deduction-playground.proof :refer [get-item get-scope add-after-item add-before-item 
+                                                remove-item replace-item id-to-line]]
+            [deduction-playground.rules :as rules]))
 
 ;; atoms to provide unique ids for items and variables
 (def id (atom 0))
@@ -148,7 +143,7 @@ This is the entry point for new deductions"
                (:rule %)) items))
     
 (defn item-to-rule-arg
-  "Converts a item to a rule argument for auto-logic"
+  "Converts a item to a rule argument for the core.logic functions"
   [item]
   (if (not (vector? item))
     (:body item)
@@ -221,13 +216,13 @@ If you only want to create one item use --> (first (create-items bodies))"
 If nothing is found returns a map with additional information for further proceeding."
   [proof rule lines forward?]
   (cond
-    (not (log/rule-exist? rule))
+    (not (rules/rule-exist? rule))
     (throw (Exception. (str "A rule named \"" rule "\" does not exists.")))
     
     ;; for forward rules with no premises (e.g. equality introduction)
     (and (empty? lines)
          forward? 
-         (zero? (log/rule-givens rule)))
+         (zero? (rules/rule-givens rule)))
     {:todo (first (filter #(= (:body %) :todo) (flatten proof)))
      :obligatories []
      :optional []}
@@ -246,8 +241,8 @@ If nothing is found returns a map with additional information for further procee
           items       (map #(get-item proof %) lines)
           obligatories (if forward? (get-proofed-items items) (get-unproofed-items items))
           optional     (if forward? (get-unproofed-items items) (get-proofed-items items))
-          numObligatories (if forward? (log/rule-givens rule) (log/rule-conclusions rule)) 
-          numOptionals    (dec (if forward? (log/rule-conclusions rule) (log/rule-givens rule)))
+          numObligatories (if forward? (rules/rule-givens rule) (rules/rule-conclusions rule)) 
+          numOptionals    (dec (if forward? (rules/rule-conclusions rule) (rules/rule-givens rule)))
           scope (get-scope proof (get-item proof lastline))
           todos (filter #(= (:body %) :todo) scope)]
       (cond
@@ -281,22 +276,23 @@ If nothing is found returns a map with additional information for further procee
                :obligatories obligatories 
                :optional optional}))))
 
-;; TODO Check that only variables (e.g. V1 V2 x y) can be renamed
 (defn rename-var
   "Replaces all instances of old inside the proof with new"
   [proof old new]
-  (check-duplicates
-    (clojure.walk/postwalk
-      (fn [node]
-        (if (map? node)
-          (cond
-            (symbol? (:body node)) (if (= (:body node) old)
-                                     (assoc node :body new) 
-                                     node)
-            (list? (:body node)) (assoc node :body (clojure.walk/prewalk-replace {old new} (:body node)))
-            :else node)
-          node)) 
-      proof)))
+  (if (symbol? old)
+    (check-duplicates
+      (clojure.walk/postwalk
+        (fn [node]
+          (if (map? node)
+            (cond
+              (symbol? (:body node)) (if (= (:body node) old)
+                                       (assoc node :body new) 
+                                       node)
+              (list? (:body node)) (assoc node :body (clojure.walk/prewalk-replace {old new} (:body node)))
+              :else node)
+            node)) 
+        proof))
+    (throw (Exception. (str "\"" old "\" is not a symbol. You can only rename symbols (not lists, vectors, etc.)")))))
 
 (defn choose-option
   "Chooses option num on line to be inserted into proof.
@@ -339,17 +335,17 @@ In case there is nothing to choose or the num is invalid, throws an exception."
 (defn step-f-inside
   [proof rule line]
   (cond
-    (> (log/rule-givens rule) 1)
+    (> (rules/rule-givens rule) 1)
     (throw (Exception. (str "The rule " rule " needs more than 1 premise. Inside-Steps can only be executed with rules that need exactly 1 premise.")))
     
-    (> (log/rule-conclusions rule) 1)
+    (> (rules/rule-conclusions rule) 1)
     (throw (Exception. (str "The rule " rule " has more than 1 conclusion. Inside-Steps only work with rules that have exactly 1 conclusion.")))
     
     :else
     (let [info (check-args proof rule [line] true)
-          r (prep-temporal (log/get-rule rule))
+          r (prep-temporal (rules/get-rule rule))
           rule-exe (fn [node]
-                     (let [res (apply log/apply-rule (conj [r true] [node] []))]
+                     (let [res (apply rules/apply-rule (conj [r true] [node] []))]
                        (if (empty? res)
                          node
                          (first res))))
@@ -372,7 +368,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
         new-body (clojure.walk/postwalk
                    (fn [node] 
                      (if (list? node)
-                       (let [res (log/apply-classicals node)]
+                       (let [res (rules/apply-classicals node)]
                          (if (empty? res) node (first res)))
                        node))
                    body)
@@ -406,7 +402,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
         obligatory-ids   (map get-item-id obligatory-items)
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
         optional-args   (into [] (map item-to-rule-arg optional-items))        
-        rule-result (apply log/apply-rule (conj [rule true] obligatory-args optional-args))]
+        rule-result (apply rules/apply-rule (conj [rule true] obligatory-args optional-args))]
     (if (empty? rule-result)
       (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
       ;; add the used rule to the optional items
@@ -439,7 +435,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
         optional-ids     (map get-item-id optional-items)
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
         optional-args   (into [] (map item-to-rule-arg optional-items))
-        rule-result (apply log/apply-rule (conj [rule false] obligatory-args optional-args ))]
+        rule-result (apply rules/apply-rule (conj [rule false] obligatory-args optional-args ))]
      (cond
        (empty? rule-result)
        (throw (Exception. "Incorrect parameters for the given rule"))

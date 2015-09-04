@@ -1,7 +1,7 @@
-(ns deduction-playground.auto-logic
+(ns deduction-playground.rules
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:require [deduction-playground.read-rules :refer [rules theorems classicals]]
+  (:require [deduction-playground.io :refer [rules theorems classicals]]
             [clojure.math.combinatorics :refer [permutations]]))
 
 ;; those "keywords" will not be handled as symbols but constants
@@ -136,12 +136,15 @@ e.g. \"and-i\" [a b] => [(and a b)]
           ((keyword name) @theorems)) true false))
 
 (defn get-rule
+  "Returns the rule/theorem with if it exists"
   [name]
   (let [rule ((keyword name) @rules)
         theorem ((keyword name) @theorems)]
     (if rule 
       rule
-      theorem)))
+      (if theorem
+        theorem
+        (throw (Exception. (str "A rule/theorem \"" name "\" doesn't exist")))))))
  
 (defn rule-givens
   "Returns the number of givens for the certain rule/theorem"
@@ -157,16 +160,16 @@ e.g. \"and-i\" [a b] => [(and a b)]
 ;; -----------------
                       
 (defn apply-rule 
-  "Applies the rule/theorem (name) either forwards or backwards (forward?) on the given parameters (args & optional).
+  "Applies the rule/theorem (rule [string or map]) either forwards or backwards (forward?) on the given parameters (args & optional).
 The obligatory arguments (args) will always be the first arguments passed to the core.logic function (in different permutations).
 The optional arguments (optional) will be mixed with the generated logical arguments and will passed last to the core-logic function (in different permutations).
 This way it is ensured that \"given\"-arguments will never handled as \"conclusion\"-arguments and vice versa."
   [rule forward? args & [optional]]
-  (let [rmap (cond
-               (map? rule) rule
-               (string? rule) (or ((keyword rule) @rules) ((keyword rule) @theorems))
-            :else (throw (Exception. "Wrong type of argument: \"rule\" has to be a string or a map.")))
-        frule (if forward? rmap (assoc rmap :given (:conclusion rmap) :conclusion (:given rmap)))
+  (let [rule-map (cond
+                   (map? rule) rule
+                   (string? rule) (or ((keyword rule) @rules) ((keyword rule) @theorems))
+                   :else (throw (Exception. "Wrong type of argument: \"rule\" has to be a string or a map.")))
+        frule (if forward? rule-map (assoc rule-map :given (:conclusion rule-map) :conclusion (:given rule-map)))
         obligatory-args (map #(conj (list %) `quote) args)
         optional-args   (map #(conj (list %) `quote) optional)
         logic-args-num (- (+ (count (:given frule)) (count (:conclusion frule)))
@@ -184,6 +187,8 @@ This way it is ensured that \"given\"-arguments will never handled as \"conclusi
     (map first (remove empty? results))))
 
 (defn apply-classicals
+  "Applies all classical theorems to the given form and returns the first successful result.
+To extend the predefined classical theorems use the \"import-classicals\" function (ns: io)"
   [form]
   (let [names (map #(subs % 1) (map str (map key @classicals)))
         f (fn [name arg]
@@ -193,38 +198,4 @@ This way it is ensured that \"given\"-arguments will never handled as \"conclusi
     res))
  
  
- ;; old versions of apply-rule
-; (defn apply-rule
-;   "Applies a rule to the given arguments and returns the result(s)"
-;   [name forward? & args]
-;   (let  [r ((keyword name) rules)
-;          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
-;          args-list (map #(conj (list %) `quote) args)
-;          logic-args (into [] (map #(symbol (str %1 %2)) 
-;                                    (take (count (:conclusion rule)) (cycle ['q]))
-;                                    (take (count (:conclusion rule)) (iterate inc 1))))
-;          fn (eval (make-rule rule))
-;          fn-args (concat args-list logic-args)]
-;     (eval (list `run* logic-args (conj fn-args fn)))))
-  
-;  (defn apply-rule1
-;    [name forward? & args]
-;    (let [r ((keyword name) rules)
-;          rule (if forward? r (assoc r :given (:conclusion r) :conclusion (:given r)))
-;          rarg-count (+ (count (:given rule)) (count (:conclusion rule)))
-;          args-list (map #(conj (list %) `quote) args)
-;          logic-args (into [] (map #(symbol (str %1 %2))
-;                                   (take (- rarg-count (count args)) (cycle ['q]))
-;                                   (take (- rarg-count (count args)) (iterate inc 1))))
-;          fn (eval (make-rule rule))
-;          fn-args (concat args-list logic-args)
-;          results (if (or (and forward?
-;                               (= (count args) (rule-givens name)))
-;                          (and (not forward?)
-;                               (= (count args) (rule-conclusions name))))
-;                    (for [x (permutations args-list)]
-;                      (eval (list `run* logic-args (conj (concat x logic-args) fn))))
-;                    (for [x (permutations fn-args)]
-;                      (eval (list `run* logic-args (conj x fn)))))]
-;      (map first (remove empty? results))))
  
