@@ -1,11 +1,11 @@
 (ns deduction-playground.temporal-test
-  (:require [deduction-playground.proof-new :refer [proof step-f step-f-inside step-b classical choose-option rename-var]]
-            [deduction-playground.read-rules :as read]
+  (:require [deduction-playground.deduction :refer [proof step-f step-f-inside step-b classical choose-option rename-var]]
+            [deduction-playground.io :as io]
             [deduction-playground.printer :refer [pprint]]))
 
-(read/read-rules "resources/rules-temporal.clj")
-(read/read-classicals "resources/classical-theorems.clj")
-(read/read-theorems "resources/theorems.clj")
+(io/import-rules "resources/rules-temporal.clj")
+(io/import-classicals "resources/classical-theorems.clj")
+(io/import-theorems "resources/theorems.clj")
 
 STOP
 
