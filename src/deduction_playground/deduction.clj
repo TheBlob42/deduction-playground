@@ -53,9 +53,37 @@ Provide ids as a map with keys = IDs to replace | vals = replacement"
   "Removes all duplicate entries from proof and adjusting the changed IDs"
   [proof]
   (let [duplicates (find-duplicates proof)
-        delete-items (map #(get-item proof (id-to-line proof %)) (map key duplicates))
-        new-proof (reduce #(remove-item %1 %2) proof delete-items)]
-    (adjust-ids new-proof duplicates)))
+        ;; if an item is the unproved result of a subproof and its proved duplicate is outside
+        ;; deleting the result due to its duplicate would lead to a strange structute inside the proof, 
+        ;; therefore the item isn't deleted, but instead change to refer to the outside duplicate
+        ;; e.g. "Generalisation" (temporal-logic)
+        ;; initial situation        ==>    without fix              ==>    with fix
+        ;; 1 (at x a) :premise             1 (at x a) :premise             1 (at x a) :premise
+        ;; ----------------------          ----------------------          ----------------------
+        ;; 2 (<= x y) :assumption          2 (<= x y) :assumption          2 (<= x y) :assumption
+        ;; 3 ...                           ----------------------          3 (at x a) "already" (1)
+        ;; 4 (at x a)                      3 (at x (always x)) "always-i"  ----------------------
+        ;; ----------------------                               ([2 1])    4 (at x (always a)) "always-i" 
+        ;; 5 (at x (always a)) "always-i"                                                       ([2 3])
+        ;;                      ([2 4])
+        fn-proved-results (fn [map [id1 id2]]
+                            (let [delete-item  (get-item proof (id-to-line proof id1))
+                                  replace-item (get-item proof (id-to-line proof id2))
+                                  delete-scope (get-scope proof delete-item)]
+                              (if (and (= delete-item (last delete-scope))
+                                       (not= delete-scope (get-scope proof replace-item)))
+                                (assoc map id1 id2) map)))
+        proved-results (reduce fn-proved-results {} duplicates)
+        fn-replace (fn [p [id1 id2]]
+                     (let [item (get-item p (id-to-line p id1))]
+                       (replace-item p item {:id id1
+                                             :body (:body item)
+                                             :rule (str "\"already proved\" (" id2 ")")})))
+        new-proof1 (reduce fn-replace proof proved-results)
+        deletions (reduce dissoc duplicates (map key proved-results))
+        delete-items (map #(get-item proof (id-to-line proof %)) (map key deletions))
+        new-proof2 (reduce remove-item new-proof1 delete-items)]
+    (adjust-ids new-proof2 deletions)))
     
 (defn remove-todos
   "Removes all \"...\" lines, if all lines inside the (sub)proof are solved (rule =! nil)"
