@@ -14,11 +14,17 @@
         body (str (if (= (:body item) :todo) "..." (:body item)))
         rule (condp = (:rule item)
                nil         ""
-               :premise    "gegeben"
-               :assumption "angenommen"
-               ;; split the string into two parts, the name of the rule (in "") and the linked ids (which will be replaced with the respective lines)
-               (str (subs (:rule item) 0 (.lastIndexOf (:rule item) "\"")) ;; important so the rule name can have numbers in its name
-                    (str/replace (subs (:rule item) (.lastIndexOf (:rule item) "\"")) #"\b[0-9]+\b" #(str (id-to-line proof (Integer. %))))))]
+               :premise    "premise"
+               :assumption "assumption"
+               (let [name (subs (:rule item) 0 (.lastIndexOf (:rule item) "("))
+                     ids  (subs (:rule item) (inc (.lastIndexOf (:rule item) "(")) (.lastIndexOf (:rule item) ")"))
+                     ;; convert ids to line-numbers
+                     lines   (str/replace ids #"\b[0-9]+\b" #(str (id-to-line proof (Integer. %))))
+                     ;; [12 12] => [12]
+                     lines-1 (str/replace lines #"\[([0-9]+)\s\1\]" #(str "[" (second %) "]"))
+                     ;; sort the line-numbers asc
+                     lines-2 (str "(" (str/join " " (sort (str/split lines-1 #"\s+(?=[^\])}]*([\[({]|$))"))) ")")]
+                 (str name lines-2)))]
     (print (pp/cl-format nil "~3d: " line))
     (when (pos? depth)
       (print " ")
