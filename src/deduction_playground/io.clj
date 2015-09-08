@@ -29,7 +29,9 @@
       (if item
         (recur (read (PushbackReader. reader) false nil)
                (assoc result (keyword (:name item)) {:given      (:given item)
-                                                     :conclusion (:conclusion item)}))
+                                                     :conclusion (:conclusion item)
+                                                     :forwards   (:forwards item)
+                                                     :backwards  (:backwards item)}))
         (swap! rules merge result)))))
 
 (defn import-classicals
@@ -42,7 +44,8 @@ Existing classical-theorems will be kept."
       (if item
         (recur (read (PushbackReader. reader) false nil)
                (assoc result (keyword (:name item)) {:given      (:given item)
-                                                     :conclusion (:conclusion item)}))
+                                                     :conclusion (:conclusion item)
+                                                     :forwards   true}))
         (swap! classicals merge result)))))
 
 (defn import-theorems
@@ -55,6 +58,7 @@ Existing classical-theorems will be kept."
         (recur (read (PushbackReader. reader) false nil)
                (assoc result (keyword (:name item)) {:given      (:given item)
                                                      :conclusion (:conclusion item)
+                                                     :forwards   (:forwards item)
                                                      :proof      (:proof item)}))
         (swap! theorems merge result)))))
 
@@ -68,6 +72,7 @@ Existing classical-theorems will be kept."
             theorem {:name name
                      :given given
                      :conclusion conclusion
+                     :forwards true
                      :proof proof}]
         (with-open [writer (io/writer filename :append true)]
           (.write writer (str theorem))

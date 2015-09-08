@@ -23,7 +23,9 @@
                      ;; [12 12] => [12]
                      lines-1 (str/replace lines #"\[([0-9]+)\s\1\]" #(str "[" (second %) "]"))
                      ;; sort the line-numbers asc
-                     lines-2 (str "(" (str/join " " (sort (str/split lines-1 #"\s+(?=[^\])}]*([\[({]|$))"))) ")")]
+                     lines-2 (if (zero? (count lines-1))
+                               ""
+                               (str "(" (str/join " " (sort (str/split lines-1 #"\s+(?=[^\])}]*([\[({]|$))"))) ")"))]
                  (str name lines-2)))]
     (print (pp/cl-format nil "~3d: " line))
     (when (pos? depth)

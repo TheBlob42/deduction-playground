@@ -13,7 +13,7 @@
   (cond 
     (symbol? arg) arg
     (list? arg) (symbol (str (first arg) n))
-    :else (throw (Exception. "Can't generate argument for the logic function"))))
+    :else (throw (Exception. (str "Can't generate argument for the logic function from \"" arg "\"")))))
     
 (defn gen-args
   "Generates the top level arguments for the logic function
@@ -129,12 +129,6 @@ e.g. \"and-i\" [a b] => [(and a b)]
       (gen-logic-function (:given r) (:conclusion r)))
     :else (throw (Exception. (str "The argument you provided is neither a legal rule-map nor the name of a valid rule or theorem (" rule ")")))))
 
-(defn rule-exist?
-  "Returns if a certain rule/theorem exists or not"
-  [name]
-  (if (or ((keyword name) @rules)
-          ((keyword name) @theorems)) true false))
-
 (defn get-rule
   "Returns the rule/theorem with if it exists"
   [name]
@@ -145,6 +139,12 @@ e.g. \"and-i\" [a b] => [(and a b)]
       (if theorem
         theorem
         (throw (Exception. (str "A rule/theorem \"" name "\" doesn't exist")))))))
+
+(defn rule-exist?
+  "Returns if a certain rule/theorem exists or not"
+  [name]
+  (if (or ((keyword name) @rules)
+          ((keyword name) @theorems)) true false))
  
 (defn rule-givens
   "Returns the number of givens for the certain rule/theorem"
@@ -157,6 +157,24 @@ e.g. \"and-i\" [a b] => [(and a b)]
   [name]
   (let [rule (or ((keyword name) @rules) ((keyword name) @theorems))]
     (count (:conclusion rule))))
+
+(defn rule-forwards?
+  "Returns true if the rule/theorem can be used forwards"
+  [name]
+  (if-let [rule (or ((keyword name) @rules) ((keyword name) @theorems))]
+    (if (:forwards rule)
+      true
+      false)
+    (throw (Exception. (str "A rule/theorem \"" name "\" doesn't exist")))))
+
+(defn rule-backwards?
+  "Returns true if the rule/theorem can be used backwards"
+  [name]
+  (if-let [rule (or ((keyword name) @rules) ((keyword name) @theorems))]
+    (if (:backwards rule)
+      true
+      false)
+    (throw (Exception. (str "A rule/theorem \"" name "\" doesn't exist")))))
 ;; -----------------
                       
 (defn apply-rule 

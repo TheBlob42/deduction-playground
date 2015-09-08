@@ -14,7 +14,7 @@ STOP
           (step-b "not-i" 4)
           (step-f "impl-e" 1 3)
           (step-f "not-e" 2 4)))
-(read/export-theorem
+(io/export-theorem
   (-> (proof '[(impl a b) (not b)] '(not a))
     (step-b "not-i" 4)
     (step-f "impl-e" 1 3)
@@ -304,7 +304,7 @@ STOP
 (pprint (-> (proof '(exists [x] (not (P x)))
                    '(not (forall [x] (P x))))
           (step-b "raa" 3)
-          (step-f "notnot-e" 2)
+          (classical 2)
           (step-b "exists-e" 1 5)
           (step-f "forall-e" 3 4)
           (step-f "not-e" 5 6)
@@ -457,7 +457,7 @@ STOP
           (step-b "exists-i" 6 3)
           ))
 
-(read/export-theorem
+(io/export-theorem
  (-> (proof '(forall [x] (not (P x)))
              '(not (exists [x] (P x))))
    (step-b "raa" 3)

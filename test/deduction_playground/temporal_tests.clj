@@ -15,7 +15,7 @@ STOP
           (step-b "always-i" 3)
           (rename-var 'V1 'x)))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x a)
              '(at x (always a)))
     (step-b "always-i" 3)
@@ -33,7 +33,7 @@ STOP
           (step-b "and-i" 5)
           (step-f "impl-e" 1 3)))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (impl a b))
              '(at x (impl (not b) (not a))))
     (step-b "impl-i" 3)
@@ -53,7 +53,7 @@ STOP
           (step-f "impl-e" 1 3)
           (step-f "impl-e" 2 4)))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '[(at x (impl a b))
                (at x (impl b c))]
              '(at x (impl a c)))
@@ -70,7 +70,7 @@ STOP
 
 (pprint (-> (proof '(at x (impl (and true a) a)))
           (classical 2)))
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (impl (and true a) a)))
     (classical 2))
   "resources/theorems.clj"
@@ -91,7 +91,7 @@ STOP
           (step-b "and-i" 7)
           ))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (asap (not a)))
                    '(at x (not (asap a))))
           (step-b "not-e" 3)
@@ -121,7 +121,7 @@ STOP
           (step-b "and-i" 7)
           ))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (impl (asap (not a)) (not (asap a)))))
     (step-b "impl-i" 2)
     (step-b "not-e" 3)
@@ -150,7 +150,7 @@ STOP
           (choose-option 5 2)
           ))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (not (sometimes a)))
              '(at x (always (not a))))
     (step-b "always-i" 3)
@@ -176,7 +176,7 @@ STOP
           (step-b "and-i" 6)
           ))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (not (always a)))
              '(at x (sometimes (not a))))
     (step-b "not-e" 3)
@@ -193,7 +193,7 @@ STOP
 ;; PRE
 (pprint (-> (proof '(at x (impl (and a (asap false)) false)))
           (classical 2)))
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (impl (and a (asap false)) false)))
     (classical 2))
   "resources/theorems.clj"
@@ -201,7 +201,7 @@ STOP
 
 (pprint (-> (proof '(at x (impl false false)))
           (classical 2)))
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (impl false false)))
     (classical 2))
   "resources/theorems.clj"
@@ -217,7 +217,7 @@ STOP
           (step-f "classical-theorem-2")
           (rename-var 'V3 'x)
           (step-f "generalisation" 3)))
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (impl (until a false) false)))
     (step-b "until-e" 2)
     (step-f "classical-theorem-1")
@@ -242,7 +242,7 @@ STOP
           (step-f "classical-theorem-2")
           (rename-var 'V4 'x)
           (step-f "generalisation" 4)))
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (until a false))
              '(at x false))
     (step-b "impl-e" 3)
@@ -274,7 +274,7 @@ STOP
           (classical 7)
           (step-f "always-e" 8 2)))
 
-(read/export-theorem
+(io/export-theorem
   (-> (proof '(at x (sometimes a))
              '(at x (until true a)))
     (step-f "sometimes-e" 1)
@@ -307,7 +307,7 @@ STOP
           (step-f "asap/<=" 5)
           (step-f "transitivity" 3 6)))
 
-(read/export-theorem 
+(io/export-theorem 
   (-> (proof '(at x (asap (sometimes a)))
              '(at x (sometimes a)))
     (step-b "sometimes-i" 3)
@@ -334,7 +334,7 @@ STOP
 ;; PRE
 (pprint (-> (proof '(at x (impl (not a) (not a))))
           (classical 2)))
-(read/export-theorem 
+(io/export-theorem 
   (-> (proof '(at x (impl (not a) (not a))))
     (classical 2))
   "resources/theorems.clj"

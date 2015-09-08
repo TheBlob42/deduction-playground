@@ -247,6 +247,12 @@ If nothing is found returns a map with additional information for further procee
     (not (rules/rule-exist? rule))
     (throw (Exception. (str "A rule named \"" rule "\" does not exists.")))
     
+    (and forward? (not (rules/rule-forwards? rule)))
+    (throw (Exception. (str "The rule \"" rule "\" is not marked for forward use.")))
+    
+    (and (not forward?) (not (rules/rule-backwards? rule)))
+    (throw (Exception. (str "The rule \"" rule "\" is not marked for backward use.")))
+    
     ;; for forward rules with no premises (e.g. equality introduction)
     (and (empty? lines)
          forward? 
@@ -412,7 +418,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
                      (true? (second (rest new-body)))))
           (check-duplicates (replace-item proof item {:id   (:id item)
                                                       :body (:body item)
-                                                      :rule (str "\"classical\"")}))
+                                                      :rule (str "\"classical\" ()")}))
           (check-duplicates (replace-item (add-before-item proof item new-item) 
                                           item 
                                           {:id   (:id item)
