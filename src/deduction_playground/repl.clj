@@ -84,5 +84,16 @@
       (reset! p (last @last_steps))
       (swap! last_steps #(into [] (drop-last %)))
       (show))))
+
+(defn show-rules []
+  (for [rule @io/rules]
+    (let [name (subs (str (key rule)) 1)
+          given (:given (val rule))
+          conclusion (:conclusion (val rule))
+          forward? (:forwards (val rule))
+          backward? (:backwards (val rule))]
+      (println (str name ": \t" given " -> " conclusion)))))
+    
+    
  
   
