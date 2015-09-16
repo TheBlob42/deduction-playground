@@ -32,7 +32,7 @@ you would write the following:<br/>
 
 ## I wanna start proving
 
-Just load the file "repl.clj" into your Clojure REPL and you're ready to start proving hypotheses. By default it will load the rules for natural deduction with propotional and predicate logic. If you want to change it to temporal logic or your custom rules, just replace the loaded file in line ? with the one you desire.
+Just load the file "repl.clj" into your Clojure REPL and you're ready to start proving hypotheses. By default it will load the rules for natural deduction with propotional and predicate logic. If you want to change it to temporal logic or your custom rules, just replace the loaded file in line 6 with the one you desire.
 
 ### Proof
 
