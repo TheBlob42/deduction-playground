@@ -106,6 +106,7 @@ Provide ids as a map with keys = IDs to replace | vals = replacement"
 ;; -------------------------------------------------------
 
 ;; functions for special forms (e.g. infer, substitution)
+;; NEW LOGIC (insert your new special forms here) 
 (defn substitution
   "Substitutes an variable identifier inside a predicate formula with another
 e.g. (substitution '(P x) 'x 'Z) => (P Z)"
@@ -351,6 +352,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
         
         (check-duplicates (remove-item p2 item))))))
 
+;; NEW LOGIC (prepare you formulas for the use in "step-f-inside" if you have to, see the temporal example)
 ;; maybe rules of the logic you're using have to be prepared to be used inside of a line
 ;; e.g. for temporal logik you have to ensure that input and output have the same timestamp (at x) and then remove it for later use
 (defn prep-temporal

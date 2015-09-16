@@ -4,6 +4,7 @@
   (:require [deduction-playground.io :refer [rules theorems classicals]]
             [clojure.math.combinatorics :refer [permutations]]))
 
+;; NEW LOGIC (add additional keywords that should not be handled like symbols)
 ;; those "keywords" will not be handled as symbols but constants
 (def keywords #{'truth 'contradiction 'true 'false})
 
