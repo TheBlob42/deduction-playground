@@ -15,8 +15,8 @@ a &#x2192; b   | (impl a b)
 &#x00AC;a      | (not a) 
 &#x22A4;       | truth
 &#x22A5;       | contradiction
-&#x2200;x P(x) | (forall [x] (P x))
-&#x2203;x P(x) | (exists [x] (P x)) 
+&#x2200;x P(x) | (forall \[x\] (P x))
+&#x2203;x P(x) | (exists \[x\] (P x)) 
 *i:* a         | (at i a) 
 &#x20DE;a      | (always a) 
 &#x20DD;a      | (asap a) 
