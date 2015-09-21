@@ -87,17 +87,17 @@
  :forwards   true}
 
 ;; SOMETIMES
-{:name "sometimes-i"
+{:name "sometime-i"
  :given      [(at j a) (<= i j)]
- :conclusion [(at i (sometimes a))]
+ :conclusion [(at i (sometime a))]
  :forwards   true
  :backwards  true}
-{:name "sometimes-e"
- :given      [(at i (sometimes a))]
+{:name "sometime-e"
+ :given      [(at i (sometime a))]
  :conclusion [(<= i j) (at j a)]
  :forwards   true}
-{:name "not-sometimes"
- :given      [(at i (not (sometimes a)))]
+{:name "not-sometime"
+ :given      [(at i (not (sometime a)))]
  :conclusion [(at i (always (not a)))]
  :forwards   true
  :backwards  true}
