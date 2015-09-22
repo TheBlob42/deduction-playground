@@ -20,7 +20,7 @@ a &#x2192; b   | (impl a b)
 *i:* a         | (at i a) 
 &#x20DE;a      | (always a) 
 &#x20DD;a      | (asap a) 
-&#x20DF;a      | (sometimes a) 
+&#x20DF;a      | (sometime a) 
 a&#x1D4E4;b    | (until a b) 
 (Also you can use *true* and *false* in your formulas)<br/><br/>
 
