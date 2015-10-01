@@ -3,7 +3,7 @@
             [deduction-playground.io :as io]
             [deduction-playground.printer :refer [pprint]]))
 
-(io/import-rules "resources/rules-prop-prep.clj")
+(io/import-rules "resources/rules-prop-pred.clj")
 (io/import-classicals "resources/classical-theorems.clj")
 (io/import-theorems "resources/theorems.clj")
 
