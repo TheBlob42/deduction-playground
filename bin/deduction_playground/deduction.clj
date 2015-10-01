@@ -199,6 +199,7 @@ with new unique identifiers (\"V1\", \"V2\" etc.)"
                            (clojure.walk/prewalk-replace smap %)) bodies)]
     new-bodies))
 
+;; NEW LOGIC (if you created new functions for special forms, you have correctly eval them here)
 (defn eval-body
   "Searches for keywords (infer, substitution) inside body and evaluates them. Otherwise returns body"
   [body]
