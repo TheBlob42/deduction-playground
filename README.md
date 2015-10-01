@@ -20,7 +20,7 @@ a &#x2192; b   | (impl a b)
 *i:* a         | (at i a) 
 &#x20DE;a      | (always a) 
 &#x20DD;a      | (asap a) 
-&#x20DF;a      | (sometimes a) 
+&#x20DF;a      | (sometime a) 
 a&#x1D4E4;b    | (until a b) 
 (Also you can use *true* and *false* in your formulas)<br/><br/>
 
@@ -212,7 +212,7 @@ key 		| what does it do?
 :forwards	|Set this to *true* if this rule should be used forwards, *false* if not*.
 :backwards	|Set this to *true* if this rule should be used backwards, *false* if not*.
 
-*not setting this key is equal to *false*
+\*not setting this key is equal to *false*
 
 See the [rules-prop-pred.clj](https://github.com/TheBlob42/deduction-playground/blob/master/resources/rules-prop-prep.clj) or the [rules-temporal.clj](https://github.com/TheBlob42/deduction-playground/blob/master/resources/rules-temporal.clj) file for examples.
 
