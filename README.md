@@ -25,7 +25,7 @@ a&#x1D4E4;b    | (until a b)
 (Also you can use *true* and *false* in your formulas)<br/><br/>
 
 You're able to combine these operators, e.g. instead of writing:<br/>
-> *(a &#x2192; b) &#x22A2; (&#x00AC;a &#x2192; &#x00AC;a)*
+> *(a &#x2192; b) &#x22A2; (&#x00AC;b &#x2192; &#x00AC;a)*
 
 you would write the following:<br/>
 > *(infer (impl a b) (impl (not b) (not a)))*
