@@ -99,6 +99,16 @@ q1 (and a b) => (== q1 `(~'and ~a ~b))"
   [conclusion qs]
   (map #(gen-result-row %1 %2) qs conclusion))
 
+(defn gen-prereq-row
+  "Converts a function call from the prerequisites into a valid core.logic restriction"
+  [prereq]
+  `(== ~prereq true))
+
+(defn gen-prereqs
+  "Generates all rows for the prerequisites"
+  [prereqs fresh-args qs]
+  (list (conj (map gen-prereq-row prereqs) 
+              (into [] (concat fresh-args qs)) `project)))
 
 (defn gen-logic-function
   "Takes given and conclusions from a rule and builds a core.logic function that will represent that rule
@@ -106,13 +116,14 @@ e.g. \"and-i\" [a b] => [(and a b)]
 (fn [a b q1] 
   (fresh [] 
     (== q1 `(~'and ~a ~b))))"
-  [given conclusion]
-  (let [qs (map #(symbol (str %1 %2)) (take (count conclusion) (cycle ['q])) (take (count conclusion) (iterate inc 1)))
+  [prereq given conclusion]
+  (let [qs   (map #(symbol (str %1 %2)) (take (count conclusion) (cycle ['q])) (take (count conclusion) (iterate inc 1)))
         args (gen-args given)
         fresh-args (apply vector (clojure.set/difference (set (gen-fresh-args given conclusion)) (set args)))
-        body (gen-body args given)
+        body   (gen-body args given)
         result (gen-result conclusion qs)
-        fn-body (conj (concat body result) fresh-args `fresh)]
+        prereqs (if (nil? prereq) nil (gen-prereqs prereq fresh-args qs))
+        fn-body (conj (concat body result prereqs) fresh-args `fresh)]
     `(fn ~(apply conj args qs)
        ~fn-body)))
 ;; -------------------------------------------------------------------------------
@@ -123,11 +134,11 @@ e.g. \"and-i\" [a b] => [(and a b)]
   [rule]
   (cond
     (map? rule)
-    (gen-logic-function (:given rule) (:conclusion rule))
+    (gen-logic-function (:prereq rule) (:given rule) (:conclusion rule))
   
     (string? rule)
     (let [r (or ((keyword rule) @rules) ((keyword rule) @theorems))]
-      (gen-logic-function (:given r) (:conclusion r)))
+      (gen-logic-function (:prereq r) (:given r) (:conclusion r)))
     :else (throw (Exception. (str "The argument you provided is neither a legal rule-map nor the name of a valid rule or theorem (" rule ")")))))
 
 (defn get-rule
@@ -177,7 +188,8 @@ e.g. \"and-i\" [a b] => [(and a b)]
       false)
     (throw (Exception. (str "A rule/theorem \"" name "\" doesn't exist")))))
 ;; -----------------
-                      
+         
+;; NOTE - right now "apply-rule" can't separate arguments from lines and user-inputs, which may cause absurd behavior 
 (defn apply-rule 
   "Applies the rule/theorem (rule [string or map]) either forwards or backwards (forward?) on the given parameters (args & optional).
 The obligatory arguments (args) will always be the first arguments passed to the core.logic function (in different permutations).
@@ -187,7 +199,7 @@ This way it is ensured that \"given\"-arguments will never handled as \"conclusi
   (let [rule-map (cond
                    (map? rule) rule
                    (string? rule) (or ((keyword rule) @rules) ((keyword rule) @theorems))
-                   :else (throw (Exception. "Wrong type of argument: \"rule\" has to be a string or a map.")))
+                   :else (throw (Exception. "RULES | Wrong type of argument: \"rule\" has to be a string or a map.")))
         frule (if forward? rule-map (assoc rule-map :given (:conclusion rule-map) :conclusion (:given rule-map)))
         obligatory-args (map #(conj (list %) `quote) args)
         optional-args   (map #(conj (list %) `quote) optional)

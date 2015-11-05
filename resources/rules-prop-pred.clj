@@ -68,14 +68,20 @@
 {:name "equal-i"
  :given      []
  :conclusion [(= t t)]
- :forwards   true}
+ :forwards   true} 
 {:name "equal-e"
- :given      [(= a b)
-              (substitution phi x a)]
- :conclusion [(substitution phi x b)]
+ :prereq [(substitutionable? phi _:x a)
+          (seq? phi)]
+ :given  [(= a b) phi _:x]
+ :conclusion [(substitution phi _:x b)]
+ :forwards true}
+;; sometimes you need this
+{:name "equal-reflexivity"
+ :given      [(= a b)]
+ :conclusion [(= b a)]
  :forwards   true
  :backwards  true}
-          
+
 ; FORALL 
 {:name "forall-i"
  :given      [(infer (actual x0)
@@ -96,9 +102,9 @@
  :backwards  true}
 {:name "exists-e"
  :given      [(exists [x] phi)
-               (infer [(actual x0)
-                       (substitution phi x x0)]
-                      X)]
+              (infer [(actual x0)
+                      (substitution phi x x0)]
+                     X)]
  :conclusion [X]
  :backwards  true}
 

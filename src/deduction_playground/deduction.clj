@@ -175,7 +175,9 @@ This is the entry point for new deductions"
   "Converts a item to a rule argument for the core.logic functions"
   [item]
   (if (not (vector? item))
-    (:body item)
+    (if (not (map? item))
+      item
+      (:body item))
     (re-infer item)))
 
 (defn get-item-id
@@ -244,73 +246,86 @@ If you only want to create one item use --> (first (create-items bodies))"
 (defn check-args
   "Checks the arguments for errors and irregularities. 
 If nothing is found returns a map with additional information for further proceeding."
-  [proof rule lines forward?]
-  (cond
-    (not (rules/rule-exist? rule))
-    (throw (Exception. (str "A rule named \"" rule "\" does not exists.")))
-    
-    (and forward? (not (rules/rule-forwards? rule)))
-    (throw (Exception. (str "The rule \"" rule "\" is not marked for forward use.")))
-    
-    (and (not forward?) (not (rules/rule-backwards? rule)))
-    (throw (Exception. (str "The rule \"" rule "\" is not marked for backward use.")))
-    
-    ;; for forward rules with no premises (e.g. equality introduction)
-    (and (empty? lines)
-         forward? 
-         (zero? (rules/rule-givens rule)))
-    {:todo (first (filter #(= (:body %) :todo) (flatten proof)))
-     :obligatories []
-     :optional []}
-    
-    (not (apply distinct? lines))
-    (throw (Exception. "There are duplicate lines in the arguments"))
-    
-    (some #(< % 1) (flatten lines))
-    (throw (Exception. "There are no line numbers less than 1"))
-                       
-    (some #(> % (count (flatten proof))) (flatten lines))
-    (throw (Exception. (str "There are no line numbers greater than " (count (flatten proof)))))
-    
-    :else
-    (let [lastline    (last (sort-by #(if (vector? %) (first %) %) lines))
-          items       (map #(get-item proof %) lines)
-          obligatories (if forward? (get-proofed-items items) (get-unproofed-items items))
-          optional     (if forward? (get-unproofed-items items) (get-proofed-items items))
-          numObligatories (if forward? (rules/rule-givens rule) (rules/rule-conclusions rule)) 
-          numOptionals    (dec (if forward? (rules/rule-conclusions rule) (rules/rule-givens rule)))
-          scope (get-scope proof (get-item proof lastline))
-          todos (filter #(= (:body %) :todo) scope)]
-      (cond
-        (not-every? #(contains? (set scope) %) items)
-        (throw (Exception. "Not all lines are in the same scope"))
+  [proof rule args forward?]
+  ;; seperate lines and user-inputs and check the right number of user-inputs
+  (let [lines       (filter number? args)
+        user-inputs (remove number? args)
+        num-inputs  (count (filter #(.startsWith (str %) "_:") 
+                                   (if forward? 
+                                     (:given (rules/get-rule rule))
+                                     (:conclusion (rules/get-rule rule)))))]
+    (cond  
+      (not= (count user-inputs) num-inputs)
+      (throw (Exception. (str "Wrong number of User-Inputs (rule: " num-inputs ", you: " (count user-inputs) ")")))
+      
+      ;; tests not regarding user-inputs
 
-        (> (count todos) 1)
-        (throw (Exception. "There can't be more than one \"...\" line inside your scope"))
-        
-        ;; only backward steps need an empty line to work towards to
-        (and (not forward?)
-             (< (count todos) 1))
-        (throw (Exception. "There is no \"...\" line inside your scope to work towards to"))
-        
-        (some #(contains? (set items) %) todos)
-        (throw (Exception. (str "Can't use a \"...\" line for " (if forward? "forward" "backward") " resulting")))
-        
-        (not= (count obligatories) numObligatories)
-        (throw (Exception. (str (if (> (count obligatories) numObligatories)
-                                   "Too many "
-                                   "Not enough ") (if forward? 
-                                                    "proofed lines (rule != nil)"
-                                                    "unproofed lines (rule = nil)") " for this rule. You need exactly " numObligatories)))
-        
-        (> (count optional) numOptionals)
-        (throw (Exception. (str "Too many [optional] " (if forward? 
-                                                         "unproofed lines (rule = nil)"
-                                                         "proofed lines (rule != nil)") " for this rule. You can have at a max " numOptionals)))
-        
-        :else {:todo (first todos)
-               :obligatories obligatories 
-               :optional optional}))))
+	    (not (rules/rule-exist? rule))
+	    (throw (Exception. (str "A rule named \"" rule "\" does not exists.")))
+	    
+	    (and forward? (not (rules/rule-forwards? rule)))
+	    (throw (Exception. (str "The rule \"" rule "\" is not marked for forward use.")))
+	    
+	    (and (not forward?) (not (rules/rule-backwards? rule)))
+	    (throw (Exception. (str "The rule \"" rule "\" is not marked for backward use.")))
+	    
+	    ;; for forward rules with no premises (e.g. equality introduction)    
+	     (and (empty? args)
+	         forward? 
+	         (zero? (rules/rule-givens rule)))
+	    {:todo (first (filter #(= (:body %) :todo) (flatten proof)))
+	     :obligatories []
+	     :optional []}
+	    
+	    (not (apply distinct? lines))
+	    (throw (Exception. "There are duplicate lines in the arguments"))
+	    
+	    (some #(< % 1) (flatten lines))
+	    (throw (Exception. "There are no line numbers less than 1"))
+	                       
+	    (some #(> % (count (flatten proof))) (flatten lines))
+	    (throw (Exception. (str "There are no line numbers greater than " (count (flatten proof)))))
+	    
+	    :else
+	    (let [lastline    (last (sort-by #(if (vector? %) (first %) %) lines))
+	          items       (map #(get-item proof %) lines)
+	          obligatories (concat (if forward? (get-proofed-items items) (get-unproofed-items items)) 
+                                user-inputs) ;; add the user-inputs to the obligatory line-items
+	          optional     (if forward? (get-unproofed-items items) (get-proofed-items items))
+	          numObligatories (if forward? (rules/rule-givens rule) (rules/rule-conclusions rule)) 
+	          numOptionals    (dec (if forward? (rules/rule-conclusions rule) (rules/rule-givens rule)))
+	          scope (get-scope proof (get-item proof lastline))
+	          todos (filter #(= (:body %) :todo) scope)]
+	      (cond
+	        (not-every? #(contains? (set scope) %) items)
+	        (throw (Exception. "Not all lines are in the same scope"))
+	
+	        (> (count todos) 1)
+	        (throw (Exception. "There can't be more than one \"...\" line inside your scope"))
+	        
+	        ;; only backward steps need an empty line to work towards to
+	        (and (not forward?)
+	             (< (count todos) 1))
+	        (throw (Exception. "There is no \"...\" line inside your scope to work towards to"))
+	        
+	        (some #(contains? (set items) %) todos)
+	        (throw (Exception. (str "Can't use a \"...\" line for " (if forward? "forward" "backward") " resulting")))
+	        
+	        (not= (count obligatories) numObligatories)
+	        (throw (Exception. (str (if (> (count obligatories) numObligatories)
+	                                   "Too many "
+	                                   "Not enough ") (if forward? 
+	                                                    "proofed lines (rule != nil)"
+	                                                    "unproofed lines (rule = nil)") " for this rule. You need exactly " numObligatories)))
+	        
+	        (> (count optional) numOptionals)
+	        (throw (Exception. (str "Too many [optional] " (if forward? 
+	                                                         "unproofed lines (rule = nil)"
+	                                                         "proofed lines (rule != nil)") " for this rule. You can have at a max " numOptionals)))
+	        
+	        :else {:todo (first todos)
+	               :obligatories obligatories 
+	               :optional optional})))))
 
 (defn rename-var
   "Replaces all instances of old inside the proof with new"
@@ -378,6 +393,9 @@ In case there is nothing to choose or the num is invalid, throws an exception."
     (> (rules/rule-conclusions rule) 1)
     (throw (Exception. (str "The rule " rule " has more than 1 conclusion. Inside-Steps only work with rules that have exactly 1 conclusion.")))
     
+    (not (number? line))
+    (throw (Exception. (str "\"" line "\" is not a line number.")))
+    
     :else
     (let [info (check-args proof rule [line] true)
           r (prep-temporal (rules/get-rule rule))
@@ -436,26 +454,30 @@ In case there is nothing to choose or the num is invalid, throws an exception."
         todo-item        (:todo info)        
         obligatory-items (:obligatories info)
         optional-items   (:optional info)
-        obligatory-ids   (map get-item-id obligatory-items)
+        ;; seperate ids (from lines) and inputs (from user-input))
+        obligatory-ids   (map get-item-id (filter map? obligatory-items))
+        obligatory-user-input (remove map? obligatory-items)
+        
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
         optional-args   (into [] (map item-to-rule-arg optional-items))        
         rule-result (apply rules/apply-rule (conj [rule true] obligatory-args optional-args))]
+    ;; the user-inputs will be attached to the :rule of a new line, after the source lines
     (if (empty? rule-result)
       (throw (Exception. (str "Incorrect parameters for the rule \"" rule "\". Please check the description.")))
       ;; add the used rule to the optional items
       (let [p1 (reduce #(replace-item %1 %2 {:id   (:id %2)
                                              :body (:body %2)
-                                             :rule (pr-str rule obligatory-ids)}) proof optional-items)]
+                                             :rule (pr-str rule obligatory-ids obligatory-user-input)}) proof optional-items)]
         (if (> (count rule-result) 1)
           ;; more than one possible result, the user has to decide which one fits his needs
           (add-before-item p1 
                            todo-item
                            {:id   (new-id)
                             :body (apply merge (map-indexed #(hash-map (inc %1) %2) rule-result))
-                            :rule (pr-str rule obligatory-ids)})
+                            :rule (pr-str rule obligatory-ids obligatory-user-input)})
           ;; only one possible result (which can contain several items to insert)
           (let [result (if (vector? (first rule-result)) (first rule-result) rule-result)               
-                new-items (create-items result (pr-str rule obligatory-ids))]
+                new-items (create-items result (pr-str rule obligatory-ids obligatory-user-input))]
             ;; if there is no empty line, insert everthing behind the last obligatory item
             (check-duplicates 
               (if todo-item
@@ -470,6 +492,8 @@ In case there is nothing to choose or the num is invalid, throws an exception."
         obligatory-items (:obligatories info)
         optional-items   (:optional info)
         optional-ids     (map get-item-id optional-items)
+        ;; seperate user-inputs from obligatory-items
+        obligatory-user-input (remove map? obligatory-items)
         obligatory-args (into [] (map item-to-rule-arg obligatory-items))
         optional-args   (into [] (map item-to-rule-arg optional-items))
         rule-result (apply rules/apply-rule (conj [rule false] obligatory-args optional-args ))]
@@ -482,7 +506,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
        (let [id (new-id)
              p1 (reduce #(replace-item %1 %2 {:id   (:id %2)
                                               :body (:body %2)
-                                              :rule (pr-str rule (conj optional-ids id))}) proof obligatory-items)]
+                                              :rule (pr-str rule (conj optional-ids id) obligatory-user-input)}) proof obligatory-items)]
          (add-after-item p1 
                          todo-item
                          {:id   id
@@ -495,7 +519,7 @@ In case there is nothing to choose or the num is invalid, throws an exception."
              new-ids   (map get-item-id new-items)
              p1 (reduce #(replace-item %1 %2 {:id   (:id %2)
                                               :body (:body %2)
-                                              :rule (pr-str rule (concat new-ids optional-ids))}) proof obligatory-items)
+                                              :rule (pr-str rule (concat new-ids optional-ids) obligatory-user-input)}) proof obligatory-items)
              ;; add proved items (e.g. subproofs) before the "..."-item and unproved items after it
              proved-items   (filter #(or (vector? %)
                                          (not (nil? (:rule %)))) new-items)

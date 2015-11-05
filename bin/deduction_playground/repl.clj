@@ -1,5 +1,6 @@
 (ns deduction-playground.repl
   (:require [deduction-playground.deduction :as deduc]
+            [deduction-playground.prereqs :refer :all]
             [deduction-playground.io :as io]
             [deduction-playground.printer :refer [pprint]]))
 

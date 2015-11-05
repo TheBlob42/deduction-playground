@@ -30,6 +30,7 @@
         (recur (read (PushbackReader. reader) false nil)
                (assoc result (keyword (:name item)) {:given      (:given item)
                                                      :conclusion (:conclusion item)
+                                                     :prereq     (:prereq item)
                                                      :forwards   (:forwards item)
                                                      :backwards  (:backwards item)}))
         (swap! rules merge result)))))
