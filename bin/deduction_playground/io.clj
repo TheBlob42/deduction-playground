@@ -3,18 +3,18 @@
             [deduction-playground.proof :refer [proved?]])
   (:import [java.io PushbackReader]))
 
-;; storage for rules, theorems and classical-theorems
+;; storage for rules, theorems and trivial-theorems
 (def rules (atom {}))
-(def classicals (atom {}))
+(def trivials (atom {}))
 (def theorems (atom {}))
 
 (defn reset-rules 
   "Empties the internal storage for rules"
   [] (reset! rules {}))
 
-(defn reset-classicals 
-  "Empties the internal storage for classical-theorems"
-  [] (reset! classicals {}))
+(defn reset-trivials 
+  "Empties the internal storage for trivial-theorems"
+  [] (reset! trivials {}))
 
 (defn reset-theorems 
   "Empties the internal storage for theorems"
@@ -35,9 +35,9 @@
                                                      :backwards  (:backwards item)}))
         (swap! rules merge result)))))
 
-(defn import-classicals
-  "Imports all classical-theorems from filename into the internal classical-theorems-storage.
-Existing classical-theorems will be kept."
+(defn import-trivials
+  "Imports all trivial-theorems from filename into the internal trivial-theorems-storage.
+Existing trivial-theorems will be kept."
   [filename]
   (with-open [reader (io/reader filename)]
     (loop [item (read (PushbackReader. reader) false nil)
@@ -47,7 +47,7 @@ Existing classical-theorems will be kept."
                (assoc result (keyword (:name item)) {:given      (:given item)
                                                      :conclusion (:conclusion item)
                                                      :forwards   true}))
-        (swap! classicals merge result)))))
+        (swap! trivials merge result)))))
 
 (defn import-theorems
   "Imports all theorems from filename into the internal theorems-storage. Existing theorems will be kept."

@@ -1,7 +1,7 @@
 (ns deduction-playground.rules
   (:refer-clojure :exclude [==])
   (:use [clojure.core.logic])
-  (:require [deduction-playground.io :refer [rules theorems classicals]]
+  (:require [deduction-playground.io :refer [rules theorems trivials]]
             [clojure.math.combinatorics :refer [permutations]]))
 
 ;; NEW LOGIC (add additional keywords that should not be handled like symbols)
@@ -217,13 +217,13 @@ This way it is ensured that \"given\"-arguments will never handled as \"conclusi
                   (eval (list `run* logic-args (conj (concat x y) fn)))))]
     (map first (remove empty? results))))
 
-(defn apply-classicals
-  "Applies all classical theorems to the given form and returns the first successful result.
-To extend the predefined classical theorems use the \"import-classicals\" function (ns: io)"
+(defn apply-trivials
+  "Applies all trivial theorems to the given form and returns the first successful result.
+To extend the predefined trivial theorems use the \"import-trivials\" function (ns: io)"
   [form]
-  (let [names (map #(subs % 1) (map str (map key @classicals)))
+  (let [names (map #(subs % 1) (map str (map key @trivials)))
         f (fn [name arg]
-            (run* [q] ((eval (make-rule ((keyword name) @classicals))) arg q)))
+            (run* [q] ((eval (make-rule ((keyword name) @trivials))) arg q)))
         results (map #(f % form) names)
         res (first (drop-while empty? results))]
     res))

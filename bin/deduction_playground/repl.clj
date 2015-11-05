@@ -6,7 +6,7 @@
 
 (io/import-rules "resources/rules-prop-pred.clj")
 ;(io/import-rules "resources/rules-temporal.clj")
-(io/import-classicals "resources/classical-theorems.clj")
+(io/import-trivials "resources/trivial-theorems.clj")
 (io/import-theorems "resources/theorems.clj")
 
 ;; holds the actual state of the proof 
@@ -62,11 +62,11 @@
   (swap! p deduc/rename-var old new)
   (show))
 
-(defn classical
-  "Apply the classical-theorems inside the chosen line"
+(defn trivial
+  "Apply the trivial-theorems inside the chosen line"
   [line]
   (swap! last_steps conj @p)
-  (swap! p deduc/classical line)
+  (swap! p deduc/trivial line)
   (show))
 
 (defn export-theorem

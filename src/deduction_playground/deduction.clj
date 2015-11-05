@@ -416,22 +416,22 @@ In case there is nothing to choose or the num is invalid, throws an exception."
           proof)
         (check-duplicates (add-after-item proof item new-item))))))
 
-(defn classical
+(defn trivial
   [proof line]
   (let [item (get-item proof line)
         body (:body item)
         new-body (clojure.walk/postwalk
                    (fn [node] 
                      (if (list? node)
-                       (let [res (rules/apply-classicals node)]
+                       (let [res (rules/apply-trivials node)]
                          (if (empty? res) node (first res)))
                        node))
                    body)
         new-item (first (create-items [new-body]))]
     (if (= body new-body)
-      (do (println "\"Classical\" hasn't changed anything.") proof)
+      (do (println "\"trivial\" hasn't changed anything.") proof)
       (if (:rule item)
-        (check-duplicates (add-after-item proof item (assoc new-item :rule (str "\"classical\" (" (:id item) ")")))) 
+        (check-duplicates (add-after-item proof item (assoc new-item :rule (str "\"trivial\" (" (:id item) ")")))) 
         (if (or (true? new-body)
                 ;; for temporal logic "(at x true)"
                 (and (list? new-body) 
@@ -439,12 +439,12 @@ In case there is nothing to choose or the num is invalid, throws an exception."
                      (true? (second (rest new-body)))))
           (check-duplicates (replace-item proof item {:id   (:id item)
                                                       :body (:body item)
-                                                      :rule (str "\"classical\" ()")}))
+                                                      :rule (str "\"trivial\" ()")}))
           (check-duplicates (replace-item (add-before-item proof item new-item) 
                                           item 
                                           {:id   (:id item)
                                            :body (:body item)
-                                           :rule (str "\"classical\" (" (:id new-item) ")")})))))))
+                                           :rule (str "\"trivial\" (" (:id new-item) ")")})))))))
 
             
 (defn step-f

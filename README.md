@@ -138,17 +138,17 @@ An example would be the &#x00AC; Elimination:
 [...]
 ```
 
-`classical` it solves any kind of classical logic inside a given line. Works very similar to "step-f-inside", but uses the theorems in "classical-theorems.clj". So thats the place to look when something isn't working as you expect it.
+`trivial` it solves any kind of trivial logic inside a given line. Works very similar to "step-f-inside", but uses the theorems in "trivial-theorems.clj". So thats the place to look when something isn't working as you expect it.
 
 ```clojure
   ----------------------------------------
 1:	(or a (and b true))	Premise
 [...]
 
-=> (classical 1)
+=> (trivial 1)
   ----------------------------------------
 1:	(or a (and b true))	Premise
-2:	(or a b)			"classical" ()
+2:	(or a b)			"trivial" ()
 [...]
 ```
 
@@ -216,8 +216,8 @@ key 		| what does it do?
 
 See the [rules-prop-pred.clj](https://github.com/TheBlob42/deduction-playground/blob/master/resources/rules-prop-prep.clj) or the [rules-temporal.clj](https://github.com/TheBlob42/deduction-playground/blob/master/resources/rules-temporal.clj) file for examples.
 
-The same way you write your own rules, you can also add or change the classical theorems which are used by the `classical` function. These have the same structure as all other rules, but you can skip the *:forwards* and *:backwards* keys since they only can be evaluated forwards.
+The same way you write your own rules, you can also add or change the trivial theorems which are used by the `trivial` function. These have the same structure as all other rules, but you can skip the *:forwards* and *:backwards* keys since they only can be evaluated forwards.
 
 ### Write your own logic
 
-If writing your own rules and classical-theorems isn't enough for your logic you can also edit the code. Search for the keyword **NEW LOGIC** in the comments. This keyword will indicate you where you may have to change or expand the code of this project.
+If writing your own rules and trivial-theorems isn't enough for your logic you can also edit the code. Search for the keyword **NEW LOGIC** in the comments. This keyword will indicate you where you may have to change or expand the code of this project.
