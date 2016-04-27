@@ -78,7 +78,7 @@ Provide ids as a map with keys = IDs to replace | vals = replacement"
                      (let [item (get-item p (id-to-line p id1))]
                        (replace-item p item {:id id1
                                              :body (:body item)
-                                             :rule (str "\"already proved\" (" id2 ")")})))
+                                             :rule (str "\"already proved\" (" id2 ") []")})))
         new-proof1 (reduce fn-replace proof proved-results)
         deletions (reduce dissoc duplicates (map key proved-results))
         delete-items (map #(get-item proof (id-to-line proof %)) (map key deletions))
